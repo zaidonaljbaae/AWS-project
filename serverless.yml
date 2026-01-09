@@ -21,14 +21,18 @@ params:
     S3_BUCKET_NAME: dev-bucket-376129844054
     ISSUERURL: ${env:COGNITO_ISSUER_URL, ""}
     AUDIENCE: ${env:COGNITO_AUDIENCE, ""}
+
   prod:
-    VPCID: ${env:VPC_ID}
-    SUBNETIDS: ${env:PRIVATE_SUBNET_IDS}
-    RDSSGID: ${env:RDS_SG_ID}
-    DB_SECRET_ARN: ${env:DB_SECRET_ARN}
-    S3_BUCKET_NAME: ${env:S3_BUCKET_NAME}
-    ISSUERURL: ${env:COGNITO_ISSUER_URL, ""}
-    AUDIENCE: ${env:COGNITO_AUDIENCE, ""}
+    VPCID: vpc-0c07cdd25c80eb7a3
+    SUBNETIDS: 
+      - subnet-018313b2802ae2719
+      - subnet-087fad512b11f8f42
+    RDSSGID: sg-
+    DB_HOST: database.c2h2uwui8lj0.us-east-1.rds.amazonaws.com
+    DB_PORT: 5432
+    DB_NAME: postgres
+    DB_USER: postgres
+    DB_PASSWORD: Aws-0020alj.333
 
 provider:
   name: aws
