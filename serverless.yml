@@ -17,7 +17,6 @@ params:
     DB_USER: postgres
     DB_PASSWORD: Aws-0020alj.333
 
-    # DB_SECRET_ARN: ${env:DB_SECRET_ARN}
     S3_BUCKET_NAME: dev-bucket-376129844054
     ISSUERURL: ${env:COGNITO_ISSUER_URL, ""}
     AUDIENCE: ${env:COGNITO_AUDIENCE, ""}
@@ -58,7 +57,6 @@ provider:
 
   environment:
     ENVIRONMENT: ${self:custom.stage}
-    # DB_SECRET_ARN: ${param:DB_SECRET_ARN}
     S3_BUCKET_NAME: ${param:S3_BUCKET_NAME}
     DB_NAME: ${param:DB_NAME}
     DB_USER: ${param:DB_USER}
