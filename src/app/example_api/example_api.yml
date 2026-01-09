@@ -23,8 +23,8 @@ iamRoleStatements:
     Action:
       - secretsmanager:GetSecretValue
       - secretsmanager:DescribeSecret
-    Resource:
-      - ${param:DB_SECRET_ARN}
+    # Resource:
+    #   - ${param:DB_SECRET_ARN}
   - Effect: Allow
     Action:
       - s3:PutObject
