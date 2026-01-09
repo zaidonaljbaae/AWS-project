@@ -11,8 +11,6 @@ phases:
           echo "Installing tools..."
           npm i -g serverless@3 aws-cdk
           python -m pip install --upgrade pip
-          pip install -r src/requirements.txt
-          pip install -r infra/cdk/requirements.txt
           npm ci || npm i
 
   pre_build:
