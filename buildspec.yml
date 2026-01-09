@@ -1,0 +1,34 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 20
+      python: 3.11
+    commands:
+      - npm i -g serverless@3 aws-cdk
+      - pip install -r requirements.txt
+      - pip install -r infra/cdk/requirements.txt
+      - npm ci || npm i
+
+  pre_build:
+    commands:
+      - echo "Stage: $STAGE"
+      - serverless --version
+      - cdk --version
+      - python --version
+
+  build:
+    commands:
+      # 1) Deploy Lambda + HTTP API
+      - serverless deploy --stage $STAGE --region $AWS_REGION
+
+      # 2) Deploy ECS/CDK (needs privileged mode)
+      - cd infra/cdk
+      - cdk bootstrap aws://$AWS_ACCOUNT_ID/$AWS_REGION
+      - cdk deploy DlmEcsStack --require-approval never
+      - cd ../..
+
+artifacts:
+  files:
+    - "**/*"

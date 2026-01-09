@@ -1,0 +1,7 @@
+handler: app/print_lambda/print_lambda.handler
+timeout: 10
+memorySize: 128
+events:
+  - httpApi:
+      path: /print
+      method: GET

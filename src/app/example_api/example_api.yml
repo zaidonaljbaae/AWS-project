@@ -1,0 +1,35 @@
+handler: app/example_api/example_api.handler
+timeout: 30
+memorySize: 512
+package:
+  patterns:
+    - "app/example_api/**"
+    - "common/**"
+    - "services/**"
+    - "repositories/**"
+    - "models/**"
+events:
+  - httpApi:
+      path: /example_api/public/{proxy+}
+      method: ANY
+  - httpApi:
+      path: /example_api/private/{proxy+}
+      method: ANY
+      authorizer:
+        name: cognitoJwt
+
+iamRoleStatements:
+  - Effect: Allow
+    Action:
+      - secretsmanager:GetSecretValue
+      - secretsmanager:DescribeSecret
+    Resource:
+      - ${param:DB_SECRET_ARN}
+  - Effect: Allow
+    Action:
+      - s3:PutObject
+      - s3:GetObject
+      - s3:ListBucket
+    Resource:
+      - arn:aws:s3:::${param:S3_BUCKET_NAME}
+      - arn:aws:s3:::${param:S3_BUCKET_NAME}/*

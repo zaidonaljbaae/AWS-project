@@ -1,0 +1,12 @@
+{
+  "app": "python app.py",
+  "context": {
+    "stage": "dev",
+    "vpcId": "REPLACE_WITH_YOUR_VPC_ID",
+    "publicSubnetIds": ["REPLACE_PUBLIC_A", "REPLACE_PUBLIC_B"],
+    "privateSubnetIds": ["REPLACE_PRIVATE_A", "REPLACE_PRIVATE_B"],
+    "rdsSecurityGroupId": "REPLACE_RDS_SG_ID",
+    "dbSecretArn": "REPLACE_DB_SECRET_ARN",
+    "s3BucketName": "REPLACE_S3_BUCKET_NAME"
+  }
+}
