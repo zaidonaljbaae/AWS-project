@@ -6,30 +6,37 @@ phases:
       nodejs: 20
       python: 3.11
     commands:
-      - npm i -g serverless@3 aws-cdk
-      - python -m pip install --upgrade pip
-      - pip install -r requirements.txt
-      - pip install -r infra/cdk/requirements.txt
-      - npm ci || npm i
+      - |
+          set -e
+          echo "Installing tools..."
+          npm i -g serverless@3 aws-cdk
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r infra/cdk/requirements.txt
+          npm ci || npm i
 
   pre_build:
     commands:
-      - echo "Stage: ${STAGE}"
-      - echo "Region: ${AWS_REGION}"
-      - serverless --version
-      - cdk --version
-      - python --version
+      - |
+          set -e
+          echo "Stage: ${STAGE}"
+          echo "Region: ${AWS_REGION}"
+          serverless --version
+          cdk --version
+          python --version
 
   build:
     commands:
-      - echo "1) Deploy Lambda + HTTP API"
-      - serverless deploy --stage "${STAGE}" --region "${AWS_REGION}"
+      - |
+          set -e
+          echo "1) Deploy Lambda + HTTP API"
+          serverless deploy --stage "${STAGE}" --region "${AWS_REGION}"
 
-      - echo "2) Deploy ECS/CDK (privileged mode required)"
-      - cd infra/cdk
-      - cdk bootstrap "aws://${AWS_ACCOUNT_ID}/${AWS_REGION}"
-      - cdk deploy DlmEcsStack --require-approval never
-      - cd ../..
+          echo "2) Deploy ECS/CDK (privileged mode required)"
+          cd infra/cdk
+          cdk bootstrap "aws://${AWS_ACCOUNT_ID}/${AWS_REGION}"
+          cdk deploy DlmEcsStack --require-approval never
+          cd ../..
 
 artifacts:
   files:
