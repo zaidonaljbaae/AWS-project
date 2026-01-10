@@ -32,8 +32,17 @@ phases:
           serverless deploy --stage "${STAGE:-dev}" --region "${AWS_REGION:-us-east-1}"
 
           echo "2) Start Docker daemon (required for CDK Docker assets)"
-          nohup dockerd >/tmp/dockerd.log 2>&1 &
-          sleep 5
+          echo "== Privileged checks =="
+          id || true
+          ls -l /var/run || true
+          ls -l /var/run/docker.sock || true
+
+          nohup dockerd --host=unix:///var/run/docker.sock >/tmp/dockerd.log 2>&1 &
+          sleep 4
+          echo "== dockerd log =="
+          tail -n 120 /tmp/dockerd.log || true
+
+          echo "== docker info =="
           docker info
 
           echo "3) Deploy ECS/CDK"
@@ -42,6 +51,7 @@ phases:
           cdk bootstrap "aws://${AWS_ACCOUNT_ID}/${AWS_REGION:-us-east-1}"
           cdk deploy --all --require-approval never
           cd ../..
+
 
 artifacts:
   files:
