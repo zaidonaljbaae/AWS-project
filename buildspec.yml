@@ -7,18 +7,19 @@ phases:
       python: 3.11
     commands:
       - |
-          set -e
+          set -euo pipefail
           echo "Installing tools..."
           npm i -g serverless@3 aws-cdk
           python -m pip install --upgrade pip
+          # Prefer deterministic install; fallback to npm i if lockfile/install fails
           npm ci || npm i
 
   pre_build:
     commands:
       - |
-          set -e
-          echo "Stage: ${STAGE}"
-          echo "Region: ${AWS_REGION}"
+          set -euo pipefail
+          echo "Stage: ${STAGE:-dev}"
+          echo "Region: ${AWS_REGION:-us-east-1}"
           serverless --version
           cdk --version
           python --version
@@ -26,19 +27,27 @@ phases:
   build:
     commands:
       - |
-          set -e
+          set -euo pipefail
+
           echo "1) Deploy Lambda + HTTP API"
-          serverless deploy --stage "${STAGE}" --region "${AWS_REGION}"
+          serverless deploy --stage "${STAGE:-dev}" --region "${AWS_REGION:-us-east-1}"
 
           echo "2) Deploy ECS/CDK (privileged mode required)"
           cd infra/cdk
           python -m pip install -r requirements.txt
 
-          docker version
-          docker info
+          echo "== Docker diagnostics =="
+          docker version || true
+          docker info || true
           ls -l /var/run/docker.sock || true
 
-          cdk bootstrap "aws://${AWS_ACCOUNT_ID}/${AWS_REGION}"
+          # Fail fast with a clear message if Docker daemon is not available
+          if ! docker info >/dev/null 2>&1; then
+            echo "ERROR: Docker daemon is not available. In CodeBuild, enable 'Privileged mode' for this project (or ensure the correct CodeBuild project is used in CodePipeline)."
+            exit 1
+          fi
+
+          cdk bootstrap "aws://${AWS_ACCOUNT_ID}/${AWS_REGION:-us-east-1}"
           cdk list
           cdk deploy --all --require-approval never
           cd ../..
