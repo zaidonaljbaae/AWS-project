@@ -10,7 +10,7 @@ params:
     SUBNETIDS: 
       - subnet-018313b2802ae2719
       - subnet-087fad512b11f8f42
-    RDSSGID: sg-
+    RDSSGID: sg-04babc3712bf0261d
     DB_HOST: database.c2h2uwui8lj0.us-east-1.rds.amazonaws.com
     DB_PORT: 5432
     DB_NAME: postgres
@@ -26,7 +26,7 @@ params:
     SUBNETIDS: 
       - subnet-018313b2802ae2719
       - subnet-087fad512b11f8f42
-    RDSSGID: sg-
+    RDSSGID: sg-04babc3712bf0261d
     DB_HOST: database.c2h2uwui8lj0.us-east-1.rds.amazonaws.com
     DB_PORT: 5432
     DB_NAME: postgres
