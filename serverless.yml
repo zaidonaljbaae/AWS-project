@@ -18,8 +18,8 @@ params:
     DB_PASSWORD: Aws-0020alj.333
 
     S3_BUCKET_NAME: dev-bucket-376129844054
-    ISSUERURL: ${env:COGNITO_ISSUER_URL}
-    AUDIENCE: ${env:COGNITO_AUDIENCE}
+    ISSUERURL: ${env:COGNITO_ISSUER_URL, ""}
+    AUDIENCE: ${env:COGNITO_AUDIENCE, ""}
 
   prod:
     VPCID: vpc-0c07cdd25c80eb7a3
