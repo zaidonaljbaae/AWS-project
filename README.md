@@ -38,7 +38,7 @@ Then:
 cd infra/cdk
 pip install -r requirements.txt
 cdk bootstrap
-cdk deploy DlmEcsStack --require-approval never
+cdk deploy "dlm-ecs-${STAGE}" --require-approval never
 ```
 
 ## Test endpoints

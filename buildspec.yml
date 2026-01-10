@@ -33,6 +33,11 @@ phases:
           echo "2) Deploy ECS/CDK (privileged mode required)"
           cd infra/cdk
           python -m pip install -r requirements.txt
+
+          docker version
+          docker info
+          ls -l /var/run/docker.sock || true
+
           cdk bootstrap "aws://${AWS_ACCOUNT_ID}/${AWS_REGION}"
           cdk list
           cdk deploy --all --require-approval never
