@@ -1,4 +1,4 @@
-handler: app/print_lambda/print_lambda.handler
+handler: app.print_lambda.print_lambda.handler
 timeout: 10
 memorySize: 128
 events:
