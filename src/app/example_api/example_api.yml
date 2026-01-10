@@ -1,6 +1,7 @@
 handler: app/example_api/example_api.handler
-timeout: 30
+timeout: 25
 memorySize: 512
+
 package:
   patterns:
     - "app/example_api/**"
@@ -8,10 +9,12 @@ package:
     - "services/**"
     - "repositories/**"
     - "models/**"
+
 events:
   - httpApi:
       path: /example_api/public/{proxy+}
       method: ANY
+
   - httpApi:
       path: /example_api/private/{proxy+}
       method: ANY
@@ -23,11 +26,14 @@ iamRoleStatements:
     Action:
       - secretsmanager:GetSecretValue
       - secretsmanager:DescribeSecret
+    Resource:
+      - arn:aws:secretsmanager:${aws:region}:${aws:accountId}:secret:*
 
   - Effect: Allow
     Action:
       - s3:PutObject
       - s3:GetObject
       - s3:ListBucket
-    Resource: "*"
-
+    Resource:
+      - arn:aws:s3:::${param:S3_BUCKET_NAME}
+      - arn:aws:s3:::${param:S3_BUCKET_NAME}/*
