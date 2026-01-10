@@ -19,7 +19,7 @@ params:
 
     S3_BUCKET_NAME: dev-bucket-376129844054
     ISSUERURL: https://cognito-idp.us-east-1.amazonaws.com/us-east-1_6bPvMXkYd
-    AUDIENCE: us-east-1_6bPvMXkYd
+    AUDIENCE: 21vpvaiih8133fmci5ui0g8f9g
 
   prod:
     VPCID: vpc-0c07cdd25c80eb7a3
