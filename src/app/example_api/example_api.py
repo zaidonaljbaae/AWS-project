@@ -1,67 +1,64 @@
 from __future__ import annotations
 
+import json
+import os
+from datetime import datetime, timezone
+
 from flask import Flask, request, jsonify
 import serverless_wsgi
 
-from common.conexao_banco import get_session
-from services.example_api_service import ExampleApiService
-from common.authorization import get_current_user
-from common.s3_helper import put_text_object, list_objects
-
 app = Flask(__name__)
-ROUTE_PREFIX = "/example_api"
+ROUTE_PREFIX = "/api"
 
 
-@app.get(ROUTE_PREFIX + "/public/health")
-def public_health():
-    print("[example_api] public health hit")
-    return jsonify(ok=True, auth="none", route="public/health")
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
-@app.get(ROUTE_PREFIX + "/public/items")
-def public_list_items():
-    limit = int(request.args.get("limit", "20"))
-    with get_session() as session:
-        items = ExampleApiService(session).list_items(limit=limit)
-        return jsonify(ok=True, items=[{"id": i.id, "name": i.name} for i in items])
+def _get_request_context() -> dict:
+    """Return a small, safe context snapshot (no secrets)."""
+    return {
+        "method": request.method,
+        "path": request.path,
+        "query": request.args.to_dict(flat=True),
+        "headers": {
+            # keep only a few useful headers
+            "user-agent": request.headers.get("user-agent"),
+            "x-forwarded-for": request.headers.get("x-forwarded-for"),
+            "x-forwarded-proto": request.headers.get("x-forwarded-proto"),
+        },
+        "stage": os.getenv("STAGE", "dev"),
+        "timestamp": _now_iso(),
+    }
 
 
-@app.post(ROUTE_PREFIX + "/public/items")
-def public_create_item():
-    payload = request.get_json(silent=True) or {}
-    name = (payload.get("name") or "").strip()
-    if not name:
-        return jsonify(ok=False, error="name is required"), 400
-
-    with get_session() as session:
-        item = ExampleApiService(session).create_item(name=name)
-        print(f"[example_api] created item id={item.id}")
-        return jsonify(ok=True, item={"id": item.id, "name": item.name})
+@app.get(ROUTE_PREFIX + "/health")
+def health():
+    print("[example_api] health hit")
+    return jsonify(ok=True, service="example_api", at=_now_iso())
 
 
-@app.post(ROUTE_PREFIX + "/public/s3/put")
-def public_s3_put():
-    payload = request.get_json(silent=True) or {}
-    key = (payload.get("key") or "tests/hello.txt").strip()
-    body = payload.get("body") or "hello from lambda"
-    put_text_object(key, body)
-    print(f"[example_api] s3 put key={key}")
-    return jsonify(ok=True, key=key)
-
-
-@app.get(ROUTE_PREFIX + "/public/s3/list")
-def public_s3_list():
-    prefix = request.args.get("prefix", "")
-    keys = list_objects(prefix=prefix, limit=20)
-    return jsonify(ok=True, keys=keys)
+@app.route(ROUTE_PREFIX + "/echo", methods=["GET", "POST"]) 
+def echo():
+    payload = request.get_json(silent=True)
+    ctx = _get_request_context()
+    print("[example_api] echo", json.dumps({"ctx": ctx, "payload": payload})[:2000])
+    return jsonify(ok=True, ctx=ctx, payload=payload)
 
 
 @app.get(ROUTE_PREFIX + "/private/me")
 def private_me():
-    user = get_current_user()
-    print("[example_api] private/me hit - user:", user)
-    return jsonify(ok=True, auth="cognito", user=user)
+    # This is a *placeholder* auth example.
+    # In production, add a JWT authorizer in API Gateway (HTTP API) or validate tokens here.
+    auth = request.headers.get("authorization")
+    user = {
+        "authenticated": bool(auth),
+        "note": "template endpoint - integrate Cognito/JWT authorizer in production",
+    }
+    print("[example_api] private/me hit - auth_present:", bool(auth))
+    return jsonify(ok=True, user=user, ctx=_get_request_context())
 
 
 def handler(event, context):
+    """AWS Lambda entrypoint."""
     return serverless_wsgi.handle_request(app, event, context)

@@ -2,11 +2,16 @@
   "app": "python app.py",
   "context": {
     "stage": "dev",
-    "vpcId": "vpc-0c07cdd25c80eb7a3",
-    "publicSubnetIds": ["subnet-0f68efd8431a2195c", "subnet-0a1516e74c32d5466"],
-    "privateSubnetIds": ["subnet-018313b2802ae2719", "subnet-087fad512b11f8f42"],
-    "rdsSecurityGroupId": "sg-082ffe72778529636",
-    "dbSecretArn": "REPLACE_DB_SECRET_ARN",
-    "s3BucketName": "REPLACE_S3_BUCKET_NAME"
+    "region": "us-east-1",
+    "useExistingVpc": true,
+    "vpcId": "vpc-0123456789abcdef0",
+    "publicSubnetIds": [
+      "subnet-0123456789abcdef0",
+      "subnet-0fedcba9876543210"
+    ],
+    "privateSubnetIds": [
+      "subnet-0a1b2c3d4e5f67890",
+      "subnet-0987654fedcba3210"
+    ]
   }
 }

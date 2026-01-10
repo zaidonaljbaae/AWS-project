@@ -1,23 +1,12 @@
-# Example API
+# Example API (Lambda + HTTP API)
 
-## Public (no auth)
-- GET  /example_api/public/health
-- GET  /example_api/public/items?limit=20
-- POST /example_api/public/items  {"name":"test"}
+Routes:
+- `GET  /api/health`
+- `GET  /api/echo` (returns request context)
+- `POST /api/echo` (returns request context + JSON body)
+- `GET  /api/private/me` (placeholder "auth" example)
 
-## Private (Cognito)
-- GET /example_api/private/me
-
-## Database migrations (Flyway)
-This project uses **Flyway** (not Alembic).
-
-Run:
-```bash
-export FLYWAY_URL="jdbc:postgresql://<HOST>:5432/<DB>"
-export FLYWAY_USER="<USER>"
-export FLYWAY_PASSWORD="<PASS>"
-./flyway/run_flyway.sh migrate
-```
-
-Migrations:
-- `flyway/sql/V1__create_example_items.sql`
+## Notes
+- This is a template service intentionally kept minimal.
+- To add real authentication, configure a JWT authorizer in API Gateway (HTTP API) and/or validate tokens in code.
+- To add DB access, set `DB_URL` in Serverless params or via SSM/Secrets.

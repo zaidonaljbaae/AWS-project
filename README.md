@@ -1,62 +1,37 @@
-# DLM Platform (Serverless + ECS + Flyway)
+# AWS Microservices Template (Serverless + ECS)
 
-This repository is a **base project** that deploys:
-- **Lambda + API Gateway HTTP API** (Flask via `serverless-wsgi`)
-- **ECS Fargate service** for **long-running jobs** (no Lambda timeout)
-- **RDS PostgreSQL** connection via **AWS Secrets Manager**
-- Optional **S3** access for testing (put/list objects)
+A generic, production-minded starter repository that demonstrates:
+- **Lambda + API Gateway (HTTP API)** for fast, event-driven APIs
+- **ECS Fargate** for containerized services / longer-running workloads
+- Optional **DB** integration (via `DB_URL`) and optional **S3** integration
 
-> You must provide your own VPC/Subnets/RDS/Secret and pass them as environment variables (Serverless) and CDK context (ECS).
+## What is included
+- `src/app/example_api` (Lambda + Flask via `serverless-wsgi`)
+- `src/app/print_lambda` (simple Lambda that prints to CloudWatch)
+- `src/app/ecs_service` (simple Flask container for ECS)
+- `serverless.yml` (safe defaults; no credentials in repo)
+- `infra/cdk` (CDK stack to deploy ECS + ALB; creates a VPC by default)
 
-## Required AWS environment variables (Serverless deploy)
-
-Set these in your shell / CodeBuild environment:
-
-- `STAGE` = `dev` or `prod`
-- `AWS_REGION` = `us-east-1`
-- `AWS_ACCOUNT_ID` = your account id
-- `VPC_ID` = your VPC id
-- `PRIVATE_SUBNET_IDS` = YAML list for serverless (example: `["subnet-aaa","subnet-bbb"]`)
-- `RDS_SG_ID` = Security Group id of the RDS instance
-- `DB_SECRET_ARN` = Secrets Manager ARN containing DB credentials
-- `S3_BUCKET_NAME` = your bucket name
-- (optional auth) `COGNITO_ISSUER_URL`, `COGNITO_AUDIENCE`
-
-## ECS via CDK
-
-Edit `infra/cdk/cdk.json` and replace placeholders:
-- `vpcId`
-- `publicSubnetIds`
-- `privateSubnetIds`
-- `rdsSecurityGroupId`
-- `dbSecretArn`
-- `s3BucketName`
-
-Then:
-
+## Quick start (local)
 ```bash
-cd infra/cdk
+cd src
+python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-cdk bootstrap
-cdk deploy "dlm-ecs-${STAGE}" --require-approval never
 ```
 
-## Test endpoints
+## Deploy (Serverless)
+```bash
+npm install
+npx serverless deploy --stage dev --region us-east-1
+```
 
-### Lambda HTTP API
-- `/example_api/public/health`
-- `/example_api/public/items` (GET/POST)
-- `/example_api/public/s3/put` (POST)
-- `/example_api/public/s3/list` (GET)
-- `/example_api/private/me` (JWT auth via Cognito authorizer)
+## Deploy (CDK / ECS)
+```bash
+cd infra/cdk
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cdk bootstrap
+cdk deploy --require-approval never
+```
 
-### Print lambda
-- `/print` (GET)
-
-### ECS service (ALB)
-- `/health`
-
-## Flyway
-See `flyway/` folder in the full runbook. Recommended approach:
-- Run Flyway from a **VPC-enabled CodeBuild** (in private subnets with SG that can reach RDS),
-  or run Flyway as a **one-off ECS task** in the same cluster.
+See `docs/README_AR.md` for an Arabic explanation and recommended AWS architecture.

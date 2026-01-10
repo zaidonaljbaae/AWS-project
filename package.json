@@ -1,19 +1,13 @@
 {
-  "name": "serverless-acesso-bd",
+  "name": "aws-microservices-template",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "",
-  "license": "ISC",
+  "description": "Generic AWS template (Serverless + ECS)",
+  "private": true,
   "devDependencies": {
     "serverless-iam-roles-per-function": "^3.2.0"
   },
   "dependencies": {
     "serverless": "^4.0.23",
-    "serverless-plugin-resource-tagging": "^1.2.0",
-    "timers": "^0.1.1"
+    "serverless-plugin-resource-tagging": "^1.2.0"
   }
 }

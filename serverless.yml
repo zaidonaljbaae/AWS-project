@@ -1,37 +1,26 @@
-service: dlm-platform
+service: aws-microservices-template
 
 custom:
   stage: ${opt:stage, self:provider.stage}
   region: ${opt:region, self:provider.region}
 
+# -----------------------------
+# Safe defaults
+# -----------------------------
+# This project is a GENERIC, production-minded template.
+# - No real secrets are stored in the repo.
+# - All functions work even without DB/VPC/Cognito.
+# - You can progressively enable VPC, DB, auth, etc.
+
 params:
   dev:
-    VPCID: vpc-0c07cdd25c80eb7a3
-    SUBNETIDS: 
-      - subnet-018313b2802ae2719
-      - subnet-087fad512b11f8f42
-    RDSSGID: sg-04babc3712bf0261d
-    DB_HOST: database.c2h2uwui8lj0.us-east-1.rds.amazonaws.com
-    DB_PORT: 5432
-    DB_NAME: postgres
-    DB_USER: postgres
-    DB_PASSWORD: Aws-0020alj.333
-
-    S3_BUCKET_NAME: dev-bucket-376129844054
-    ISSUERURL: https://cognito-idp.us-east-1.amazonaws.com/us-east-1_6bPvMXkYd
-    AUDIENCE: 21vpvaiih8133fmci5ui0g8f9g
+    # Optional settings (leave empty to keep the template minimal)
+    S3_BUCKET_NAME: ""         # e.g. my-dev-bucket
+    DB_URL: ""                # e.g. postgresql+psycopg2://user:pass@host:5432/db
 
   prod:
-    VPCID: vpc-0c07cdd25c80eb7a3
-    SUBNETIDS: 
-      - subnet-018313b2802ae2719
-      - subnet-087fad512b11f8f42
-    RDSSGID: sg-04babc3712bf0261d
-    DB_HOST: database.c2h2uwui8lj0.us-east-1.rds.amazonaws.com
-    DB_PORT: 5432
-    DB_NAME: postgres
-    DB_USER: postgres
-    DB_PASSWORD: Aws-0020alj.333
+    S3_BUCKET_NAME: ""
+    DB_URL: ""
 
 provider:
   name: aws
@@ -42,29 +31,17 @@ provider:
 
   httpApi:
     cors: true
-    authorizers:
-      cognitoJwt:
-        type: jwt
-        identitySource: $request.header.Authorization
-        issuerUrl: https://cognito-idp.us-east-1.amazonaws.com/us-east-1_6bPvMXkYd
-        audience:
-          - ${param:AUDIENCE}
 
-  vpc:
-    securityGroupIds:
-      - Ref: LambdaSecurityGroup
-    subnetIds: ${param:SUBNETIDS}
+  # Optional: Put Lambdas inside a VPC (private subnets) when needed.
+  # vpc:
+  #   securityGroupIds:
+  #     - Ref: LambdaSecurityGroup
+  #   subnetIds: ${param:SUBNETIDS}
 
   environment:
-    ENVIRONMENT: ${self:custom.stage}
+    STAGE: ${self:custom.stage}
     S3_BUCKET_NAME: ${param:S3_BUCKET_NAME}
-    DB_NAME: ${param:DB_NAME}
-    DB_USER: ${param:DB_USER}
-    DB_PASSWORD: ${param:DB_PASSWORD}
-    DB_HOST: ${param:DB_HOST}
-    DB_PORT: ${param:DB_PORT}
-
-
+    DB_URL: ${param:DB_URL}
 
 package:
   individually: true
@@ -76,8 +53,9 @@ functions:
   example_api: ${file(src/app/example_api/example_api.yml)}
   print_lambda: ${file(src/app/print_lambda/print_lambda.yml)}
 
-resources:
-  - ${file(resources/vpc/vpc.yml)}
+# Optional: resources for VPC SGs (enable if you enable provider.vpc)
+# resources:
+#   - ${file(resources/vpc/vpc.yml)}
 
 plugins:
   - serverless-iam-roles-per-function
