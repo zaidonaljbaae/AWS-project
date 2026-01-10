@@ -1,0 +1,479 @@
+{
+ "Resources": {
+  "EcsServiceSG0E8A821D": {
+   "Type": "AWS::EC2::SecurityGroup",
+   "Properties": {
+    "GroupDescription": "ECS service SG",
+    "SecurityGroupEgress": [
+     {
+      "CidrIp": "0.0.0.0/0",
+      "Description": "Allow all outbound traffic by default",
+      "IpProtocol": "-1"
+     }
+    ],
+    "VpcId": "vpc-0c07cdd25c80eb7a3"
+   },
+   "Metadata": {
+    "aws:cdk:path": "dlm-ecs-dev/EcsServiceSG/Resource"
+   }
+  },
+  "EcsServiceSGfromdlmecsdevServiceLBSecurityGroupB59DC5F58080787C7BDA": {
+   "Type": "AWS::EC2::SecurityGroupIngress",
+   "Properties": {
+    "Description": "Load balancer to target",
+    "FromPort": 8080,
+    "GroupId": {
+     "Fn::GetAtt": [
+      "EcsServiceSG0E8A821D",
+      "GroupId"
+     ]
+    },
+    "IpProtocol": "tcp",
+    "SourceSecurityGroupId": {
+     "Fn::GetAtt": [
+      "ServiceLBSecurityGroupF7435A5C",
+      "GroupId"
+     ]
+    },
+    "ToPort": 8080
+   },
+   "Metadata": {
+    "aws:cdk:path": "dlm-ecs-dev/EcsServiceSG/from dlmecsdevServiceLBSecurityGroupB59DC5F5:8080"
+   }
+  },
+  "ClusterEB0386A7": {
+   "Type": "AWS::ECS::Cluster",
+   "Properties": {
+    "ClusterName": "dlm-api-cluster-dev"
+   },
+   "Metadata": {
+    "aws:cdk:path": "dlm-ecs-dev/Cluster/Resource"
+   }
+  },
+  "LogGroupF5B46931": {
+   "Type": "AWS::Logs::LogGroup",
+   "Properties": {
+    "LogGroupName": "/dlm/dev/ecs-api",
+    "RetentionInDays": 30
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "dlm-ecs-dev/LogGroup/Resource"
+   }
+  },
+  "TaskDefTaskRole1EDB4A67": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "ecs-tasks.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "dlm-ecs-dev/TaskDef/TaskRole/Resource"
+   }
+  },
+  "TaskDef54694570": {
+   "Type": "AWS::ECS::TaskDefinition",
+   "Properties": {
+    "ContainerDefinitions": [
+     {
+      "Environment": [
+       {
+        "Name": "STAGE",
+        "Value": "dev"
+       }
+      ],
+      "Essential": true,
+      "Image": {
+       "Fn::Sub": "${AWS::AccountId}.dkr.ecr.us-east-1.${AWS::URLSuffix}/cdk-hnb659fds-container-assets-${AWS::AccountId}-us-east-1:dffc2582ddba91d9400aa400feba030ee85c542e4c17952310920906f6fd0058"
+      },
+      "LogConfiguration": {
+       "LogDriver": "awslogs",
+       "Options": {
+        "awslogs-group": {
+         "Ref": "LogGroupF5B46931"
+        },
+        "awslogs-stream-prefix": "ecs",
+        "awslogs-region": "us-east-1"
+       }
+      },
+      "Name": "ApiApp",
+      "PortMappings": [
+       {
+        "ContainerPort": 8080,
+        "Protocol": "tcp"
+       }
+      ]
+     }
+    ],
+    "Cpu": "256",
+    "ExecutionRoleArn": {
+     "Fn::GetAtt": [
+      "TaskDefExecutionRoleB4775C97",
+      "Arn"
+     ]
+    },
+    "Family": "dlmecsdevTaskDef168BA045",
+    "Memory": "512",
+    "NetworkMode": "awsvpc",
+    "RequiresCompatibilities": [
+     "FARGATE"
+    ],
+    "TaskRoleArn": {
+     "Fn::GetAtt": [
+      "TaskDefTaskRole1EDB4A67",
+      "Arn"
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "dlm-ecs-dev/TaskDef/Resource"
+   }
+  },
+  "TaskDefExecutionRoleB4775C97": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "ecs-tasks.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "dlm-ecs-dev/TaskDef/ExecutionRole/Resource"
+   }
+  },
+  "TaskDefExecutionRoleDefaultPolicy0DBB737A": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:BatchGetImage"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::Join": [
+         "",
+         [
+          "arn:",
+          {
+           "Ref": "AWS::Partition"
+          },
+          ":ecr:us-east-1:",
+          {
+           "Ref": "AWS::AccountId"
+          },
+          ":repository/",
+          {
+           "Fn::Sub": "cdk-hnb659fds-container-assets-${AWS::AccountId}-us-east-1"
+          }
+         ]
+        ]
+       }
+      },
+      {
+       "Action": "ecr:GetAuthorizationToken",
+       "Effect": "Allow",
+       "Resource": "*"
+      },
+      {
+       "Action": [
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::GetAtt": [
+         "LogGroupF5B46931",
+         "Arn"
+        ]
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "TaskDefExecutionRoleDefaultPolicy0DBB737A",
+    "Roles": [
+     {
+      "Ref": "TaskDefExecutionRoleB4775C97"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "dlm-ecs-dev/TaskDef/ExecutionRole/DefaultPolicy/Resource"
+   }
+  },
+  "ServiceLBE9A1ADBC": {
+   "Type": "AWS::ElasticLoadBalancingV2::LoadBalancer",
+   "Properties": {
+    "LoadBalancerAttributes": [
+     {
+      "Key": "deletion_protection.enabled",
+      "Value": "false"
+     }
+    ],
+    "Scheme": "internet-facing",
+    "SecurityGroups": [
+     {
+      "Fn::GetAtt": [
+       "ServiceLBSecurityGroupF7435A5C",
+       "GroupId"
+      ]
+     }
+    ],
+    "Subnets": [
+     "subnet-0a1516e74c32d5466",
+     "subnet-0a1516e74c32d5466"
+    ],
+    "Type": "application"
+   },
+   "Metadata": {
+    "aws:cdk:path": "dlm-ecs-dev/Service/LB/Resource"
+   }
+  },
+  "ServiceLBSecurityGroupF7435A5C": {
+   "Type": "AWS::EC2::SecurityGroup",
+   "Properties": {
+    "GroupDescription": "Automatically created Security Group for ELB dlmecsdevServiceLBABD0A2AF",
+    "SecurityGroupIngress": [
+     {
+      "CidrIp": "0.0.0.0/0",
+      "Description": "Allow from anyone on port 80",
+      "FromPort": 80,
+      "IpProtocol": "tcp",
+      "ToPort": 80
+     }
+    ],
+    "VpcId": "vpc-0c07cdd25c80eb7a3"
+   },
+   "Metadata": {
+    "aws:cdk:path": "dlm-ecs-dev/Service/LB/SecurityGroup/Resource"
+   }
+  },
+  "ServiceLBSecurityGrouptodlmecsdevEcsServiceSG0104886E80809F3FD803": {
+   "Type": "AWS::EC2::SecurityGroupEgress",
+   "Properties": {
+    "Description": "Load balancer to target",
+    "DestinationSecurityGroupId": {
+     "Fn::GetAtt": [
+      "EcsServiceSG0E8A821D",
+      "GroupId"
+     ]
+    },
+    "FromPort": 8080,
+    "GroupId": {
+     "Fn::GetAtt": [
+      "ServiceLBSecurityGroupF7435A5C",
+      "GroupId"
+     ]
+    },
+    "IpProtocol": "tcp",
+    "ToPort": 8080
+   },
+   "Metadata": {
+    "aws:cdk:path": "dlm-ecs-dev/Service/LB/SecurityGroup/to dlmecsdevEcsServiceSG0104886E:8080"
+   }
+  },
+  "ServiceLBPublicListener46709EAA": {
+   "Type": "AWS::ElasticLoadBalancingV2::Listener",
+   "Properties": {
+    "DefaultActions": [
+     {
+      "TargetGroupArn": {
+       "Ref": "ServiceLBPublicListenerECSGroup0CC8688C"
+      },
+      "Type": "forward"
+     }
+    ],
+    "LoadBalancerArn": {
+     "Ref": "ServiceLBE9A1ADBC"
+    },
+    "Port": 80,
+    "Protocol": "HTTP"
+   },
+   "Metadata": {
+    "aws:cdk:path": "dlm-ecs-dev/Service/LB/PublicListener/Resource"
+   }
+  },
+  "ServiceLBPublicListenerECSGroup0CC8688C": {
+   "Type": "AWS::ElasticLoadBalancingV2::TargetGroup",
+   "Properties": {
+    "HealthCheckPath": "/health",
+    "Port": 80,
+    "Protocol": "HTTP",
+    "TargetGroupAttributes": [
+     {
+      "Key": "stickiness.enabled",
+      "Value": "false"
+     }
+    ],
+    "TargetType": "ip",
+    "VpcId": "vpc-0c07cdd25c80eb7a3"
+   },
+   "Metadata": {
+    "aws:cdk:path": "dlm-ecs-dev/Service/LB/PublicListener/ECSGroup/Resource"
+   }
+  },
+  "Service9571FDD8": {
+   "Type": "AWS::ECS::Service",
+   "Properties": {
+    "Cluster": {
+     "Ref": "ClusterEB0386A7"
+    },
+    "DeploymentConfiguration": {
+     "Alarms": {
+      "AlarmNames": [],
+      "Enable": false,
+      "Rollback": false
+     },
+     "MaximumPercent": 200,
+     "MinimumHealthyPercent": 50
+    },
+    "DesiredCount": 1,
+    "EnableECSManagedTags": false,
+    "HealthCheckGracePeriodSeconds": 30,
+    "LaunchType": "FARGATE",
+    "LoadBalancers": [
+     {
+      "ContainerName": "ApiApp",
+      "ContainerPort": 8080,
+      "TargetGroupArn": {
+       "Ref": "ServiceLBPublicListenerECSGroup0CC8688C"
+      }
+     }
+    ],
+    "NetworkConfiguration": {
+     "AwsvpcConfiguration": {
+      "AssignPublicIp": "DISABLED",
+      "SecurityGroups": [
+       {
+        "Fn::GetAtt": [
+         "EcsServiceSG0E8A821D",
+         "GroupId"
+        ]
+       }
+      ],
+      "Subnets": [
+       "subnet-018313b2802ae2719",
+       "subnet-087fad512b11f8f42"
+      ]
+     }
+    },
+    "TaskDefinition": {
+     "Ref": "TaskDef54694570"
+    }
+   },
+   "DependsOn": [
+    "ServiceLBPublicListenerECSGroup0CC8688C",
+    "ServiceLBPublicListener46709EAA",
+    "TaskDefTaskRole1EDB4A67"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "dlm-ecs-dev/Service/Service/Service"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/31SXWvDMAz8LX13vbaDvfdjG4XCStL3ojqap8W1g6W0hJD/Ppx+ELqxJ51OJ3wnPNPTl4mejODMY1OUY0cH3eYCplQZcqijQQVn3rdoZrrN0dSRpHmPoa7U8tP/T6y9jcj8i3/t6U6hYd0uXc2CMYlu8A2iBcEdcLnCT/IkFHwSPDLBC5DHOOCuuznGExm8PN3DTrlgWbebYO9ub7hTBEfdZsH1G33dBkemSe0FJbtxD8worFfBlBjXR7A4T0ya6QyrwCQhNgtgTOn2FYhg9KznVeXIQLK4CVAswIE3WDy4RQcsZFyA4tAryNvTTLd/b8dLhEE/1BEL+qvmhgfzHUSLcr/EoO061WfKBSx5m6YftVS19Ke5fopObRv5Cv7pWU+nejL6ZqJxrL3QEXV2qT/bdGJwXAIAAA=="
+   },
+   "Metadata": {
+    "aws:cdk:path": "dlm-ecs-dev/CDKMetadata/Default"
+   }
+  }
+ },
+ "Outputs": {
+  "ServiceLoadBalancerDNSEC5B149E": {
+   "Value": {
+    "Fn::GetAtt": [
+     "ServiceLBE9A1ADBC",
+     "DNSName"
+    ]
+   }
+  },
+  "ServiceServiceURL250C0FB6": {
+   "Value": {
+    "Fn::Join": [
+     "",
+     [
+      "http://",
+      {
+       "Fn::GetAtt": [
+        "ServiceLBE9A1ADBC",
+        "DNSName"
+       ]
+      }
+     ]
+    ]
+   }
+  },
+  "AlbDnsName": {
+   "Value": {
+    "Fn::GetAtt": [
+     "ServiceLBE9A1ADBC",
+     "DNSName"
+    ]
+   }
+  },
+  "EcsLogGroupName": {
+   "Value": {
+    "Ref": "LogGroupF5B46931"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

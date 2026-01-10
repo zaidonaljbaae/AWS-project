@@ -1,0 +1,310 @@
+{
+  "version": "38.0.1",
+  "artifacts": {
+    "dlm-ecs-dev.assets": {
+      "type": "cdk:asset-manifest",
+      "properties": {
+        "file": "dlm-ecs-dev.assets.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+      }
+    },
+    "dlm-ecs-dev": {
+      "type": "aws:cloudformation:stack",
+      "environment": "aws://unknown-account/us-east-1",
+      "properties": {
+        "templateFile": "dlm-ecs-dev.template.json",
+        "terminationProtection": false,
+        "validateOnSynth": false,
+        "notificationArns": [],
+        "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-deploy-role-${AWS::AccountId}-us-east-1",
+        "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-cfn-exec-role-${AWS::AccountId}-us-east-1",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1/bc1e8c171e6a3a72acd9e25b40349ecea147723098c95759ff4adcb8f2f44874.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
+        "additionalDependencies": [
+          "dlm-ecs-dev.assets"
+        ],
+        "lookupRole": {
+          "arn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-lookup-role-${AWS::AccountId}-us-east-1",
+          "requiresBootstrapStackVersion": 8,
+          "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+        }
+      },
+      "dependencies": [
+        "dlm-ecs-dev.assets"
+      ],
+      "metadata": {
+        "/dlm-ecs-dev/ImportedVPC/PublicSubnet1": [
+          {
+            "type": "aws:cdk:warning",
+            "data": "No routeTableId was provided to the subnet 'subnet-0a1516e74c32d5466'. Attempting to read its .routeTable.routeTableId will return null/undefined. (More info: https://github.com/aws/aws-cdk/pull/3171) [ack: @aws-cdk/aws-ec2:noSubnetRouteTableId]",
+            "trace": [
+              "Annotations.addMessage (C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\core\\lib\\annotations.js:1:1608)",
+              "Annotations.addWarningV2 (C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\core\\lib\\annotations.js:1:825)",
+              "new ImportedSubnet (C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\aws-ec2\\lib\\vpc.js:1:34578)",
+              "Subnet.fromSubnetAttributes (C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\aws-ec2\\lib\\vpc.js:1:22562)",
+              "C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\aws-ec2\\lib\\util.js:1:2221",
+              "Array.map (<anonymous>)",
+              "ImportSubnetGroup.import (C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\aws-ec2\\lib\\util.js:1:2139)",
+              "new ImportedVpc (C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\aws-ec2\\lib\\vpc.js:1:31644)",
+              "Vpc.fromVpcAttributes (C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\aws-ec2\\lib\\vpc.js:1:8213)",
+              "C:\\Users\\zaido\\AppData\\Local\\Temp\\tmpunh6k22f\\lib\\program.js:316:151",
+              "Kernel._Kernel_ensureSync (C:\\Users\\zaido\\AppData\\Local\\Temp\\tmpunh6k22f\\lib\\program.js:917:24)",
+              "Kernel.sinvoke (C:\\Users\\zaido\\AppData\\Local\\Temp\\tmpunh6k22f\\lib\\program.js:316:102)",
+              "KernelHost.processRequest (C:\\Users\\zaido\\AppData\\Local\\Temp\\tmpunh6k22f\\lib\\program.js:15482:36)",
+              "KernelHost.run (C:\\Users\\zaido\\AppData\\Local\\Temp\\tmpunh6k22f\\lib\\program.js:15442:22)",
+              "Immediate._onImmediate (C:\\Users\\zaido\\AppData\\Local\\Temp\\tmpunh6k22f\\lib\\program.js:15443:45)",
+              "process.processImmediate (node:internal/timers:476:21)"
+            ]
+          }
+        ],
+        "/dlm-ecs-dev/ImportedVPC/PublicSubnet2": [
+          {
+            "type": "aws:cdk:warning",
+            "data": "No routeTableId was provided to the subnet 'subnet-0a1516e74c32d5466'. Attempting to read its .routeTable.routeTableId will return null/undefined. (More info: https://github.com/aws/aws-cdk/pull/3171) [ack: @aws-cdk/aws-ec2:noSubnetRouteTableId]",
+            "trace": [
+              "Annotations.addMessage (C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\core\\lib\\annotations.js:1:1608)",
+              "Annotations.addWarningV2 (C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\core\\lib\\annotations.js:1:825)",
+              "new ImportedSubnet (C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\aws-ec2\\lib\\vpc.js:1:34578)",
+              "Subnet.fromSubnetAttributes (C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\aws-ec2\\lib\\vpc.js:1:22562)",
+              "C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\aws-ec2\\lib\\util.js:1:2221",
+              "Array.map (<anonymous>)",
+              "ImportSubnetGroup.import (C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\aws-ec2\\lib\\util.js:1:2139)",
+              "new ImportedVpc (C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\aws-ec2\\lib\\vpc.js:1:31644)",
+              "Vpc.fromVpcAttributes (C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\aws-ec2\\lib\\vpc.js:1:8213)",
+              "C:\\Users\\zaido\\AppData\\Local\\Temp\\tmpunh6k22f\\lib\\program.js:316:151",
+              "Kernel._Kernel_ensureSync (C:\\Users\\zaido\\AppData\\Local\\Temp\\tmpunh6k22f\\lib\\program.js:917:24)",
+              "Kernel.sinvoke (C:\\Users\\zaido\\AppData\\Local\\Temp\\tmpunh6k22f\\lib\\program.js:316:102)",
+              "KernelHost.processRequest (C:\\Users\\zaido\\AppData\\Local\\Temp\\tmpunh6k22f\\lib\\program.js:15482:36)",
+              "KernelHost.run (C:\\Users\\zaido\\AppData\\Local\\Temp\\tmpunh6k22f\\lib\\program.js:15442:22)",
+              "Immediate._onImmediate (C:\\Users\\zaido\\AppData\\Local\\Temp\\tmpunh6k22f\\lib\\program.js:15443:45)",
+              "process.processImmediate (node:internal/timers:476:21)"
+            ]
+          }
+        ],
+        "/dlm-ecs-dev/ImportedVPC/PrivateSubnet1": [
+          {
+            "type": "aws:cdk:warning",
+            "data": "No routeTableId was provided to the subnet 'subnet-018313b2802ae2719'. Attempting to read its .routeTable.routeTableId will return null/undefined. (More info: https://github.com/aws/aws-cdk/pull/3171) [ack: @aws-cdk/aws-ec2:noSubnetRouteTableId]",
+            "trace": [
+              "Annotations.addMessage (C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\core\\lib\\annotations.js:1:1608)",
+              "Annotations.addWarningV2 (C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\core\\lib\\annotations.js:1:825)",
+              "new ImportedSubnet (C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\aws-ec2\\lib\\vpc.js:1:34578)",
+              "Subnet.fromSubnetAttributes (C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\aws-ec2\\lib\\vpc.js:1:22562)",
+              "C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\aws-ec2\\lib\\util.js:1:2221",
+              "Array.map (<anonymous>)",
+              "ImportSubnetGroup.import (C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\aws-ec2\\lib\\util.js:1:2139)",
+              "new ImportedVpc (C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\aws-ec2\\lib\\vpc.js:1:31682)",
+              "Vpc.fromVpcAttributes (C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\aws-ec2\\lib\\vpc.js:1:8213)",
+              "C:\\Users\\zaido\\AppData\\Local\\Temp\\tmpunh6k22f\\lib\\program.js:316:151",
+              "Kernel._Kernel_ensureSync (C:\\Users\\zaido\\AppData\\Local\\Temp\\tmpunh6k22f\\lib\\program.js:917:24)",
+              "Kernel.sinvoke (C:\\Users\\zaido\\AppData\\Local\\Temp\\tmpunh6k22f\\lib\\program.js:316:102)",
+              "KernelHost.processRequest (C:\\Users\\zaido\\AppData\\Local\\Temp\\tmpunh6k22f\\lib\\program.js:15482:36)",
+              "KernelHost.run (C:\\Users\\zaido\\AppData\\Local\\Temp\\tmpunh6k22f\\lib\\program.js:15442:22)",
+              "Immediate._onImmediate (C:\\Users\\zaido\\AppData\\Local\\Temp\\tmpunh6k22f\\lib\\program.js:15443:45)",
+              "process.processImmediate (node:internal/timers:476:21)"
+            ]
+          }
+        ],
+        "/dlm-ecs-dev/ImportedVPC/PrivateSubnet2": [
+          {
+            "type": "aws:cdk:warning",
+            "data": "No routeTableId was provided to the subnet 'subnet-087fad512b11f8f42'. Attempting to read its .routeTable.routeTableId will return null/undefined. (More info: https://github.com/aws/aws-cdk/pull/3171) [ack: @aws-cdk/aws-ec2:noSubnetRouteTableId]",
+            "trace": [
+              "Annotations.addMessage (C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\core\\lib\\annotations.js:1:1608)",
+              "Annotations.addWarningV2 (C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\core\\lib\\annotations.js:1:825)",
+              "new ImportedSubnet (C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\aws-ec2\\lib\\vpc.js:1:34578)",
+              "Subnet.fromSubnetAttributes (C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\aws-ec2\\lib\\vpc.js:1:22562)",
+              "C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\aws-ec2\\lib\\util.js:1:2221",
+              "Array.map (<anonymous>)",
+              "ImportSubnetGroup.import (C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\aws-ec2\\lib\\util.js:1:2139)",
+              "new ImportedVpc (C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\aws-ec2\\lib\\vpc.js:1:31682)",
+              "Vpc.fromVpcAttributes (C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\aws-ec2\\lib\\vpc.js:1:8213)",
+              "C:\\Users\\zaido\\AppData\\Local\\Temp\\tmpunh6k22f\\lib\\program.js:316:151",
+              "Kernel._Kernel_ensureSync (C:\\Users\\zaido\\AppData\\Local\\Temp\\tmpunh6k22f\\lib\\program.js:917:24)",
+              "Kernel.sinvoke (C:\\Users\\zaido\\AppData\\Local\\Temp\\tmpunh6k22f\\lib\\program.js:316:102)",
+              "KernelHost.processRequest (C:\\Users\\zaido\\AppData\\Local\\Temp\\tmpunh6k22f\\lib\\program.js:15482:36)",
+              "KernelHost.run (C:\\Users\\zaido\\AppData\\Local\\Temp\\tmpunh6k22f\\lib\\program.js:15442:22)",
+              "Immediate._onImmediate (C:\\Users\\zaido\\AppData\\Local\\Temp\\tmpunh6k22f\\lib\\program.js:15443:45)",
+              "process.processImmediate (node:internal/timers:476:21)"
+            ]
+          }
+        ],
+        "/dlm-ecs-dev/EcsServiceSG/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "EcsServiceSG0E8A821D"
+          }
+        ],
+        "/dlm-ecs-dev/EcsServiceSG/from dlmecsdevServiceLBSecurityGroupB59DC5F5:8080": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "EcsServiceSGfromdlmecsdevServiceLBSecurityGroupB59DC5F58080787C7BDA"
+          }
+        ],
+        "/dlm-ecs-dev/Cluster/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ClusterEB0386A7"
+          }
+        ],
+        "/dlm-ecs-dev/LogGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LogGroupF5B46931"
+          }
+        ],
+        "/dlm-ecs-dev/TaskDef/TaskRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TaskDefTaskRole1EDB4A67"
+          }
+        ],
+        "/dlm-ecs-dev/TaskDef/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TaskDef54694570"
+          }
+        ],
+        "/dlm-ecs-dev/TaskDef/ExecutionRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TaskDefExecutionRoleB4775C97"
+          }
+        ],
+        "/dlm-ecs-dev/TaskDef/ExecutionRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TaskDefExecutionRoleDefaultPolicy0DBB737A"
+          }
+        ],
+        "/dlm-ecs-dev/Priv0": [
+          {
+            "type": "aws:cdk:warning",
+            "data": "No routeTableId was provided to the subnet 'subnet-018313b2802ae2719'. Attempting to read its .routeTable.routeTableId will return null/undefined. (More info: https://github.com/aws/aws-cdk/pull/3171) [ack: @aws-cdk/aws-ec2:noSubnetRouteTableId]",
+            "trace": [
+              "Annotations.addMessage (C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\core\\lib\\annotations.js:1:1608)",
+              "Annotations.addWarningV2 (C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\core\\lib\\annotations.js:1:825)",
+              "new ImportedSubnet (C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\aws-ec2\\lib\\vpc.js:1:34578)",
+              "Subnet.fromSubnetAttributes (C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\aws-ec2\\lib\\vpc.js:1:22562)",
+              "Subnet.fromSubnetId (C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\aws-ec2\\lib\\vpc.js:1:22648)",
+              "C:\\Users\\zaido\\AppData\\Local\\Temp\\tmpunh6k22f\\lib\\program.js:316:151",
+              "Kernel._Kernel_ensureSync (C:\\Users\\zaido\\AppData\\Local\\Temp\\tmpunh6k22f\\lib\\program.js:917:24)",
+              "Kernel.sinvoke (C:\\Users\\zaido\\AppData\\Local\\Temp\\tmpunh6k22f\\lib\\program.js:316:102)",
+              "KernelHost.processRequest (C:\\Users\\zaido\\AppData\\Local\\Temp\\tmpunh6k22f\\lib\\program.js:15482:36)",
+              "KernelHost.run (C:\\Users\\zaido\\AppData\\Local\\Temp\\tmpunh6k22f\\lib\\program.js:15442:22)",
+              "Immediate._onImmediate (C:\\Users\\zaido\\AppData\\Local\\Temp\\tmpunh6k22f\\lib\\program.js:15443:45)",
+              "process.processImmediate (node:internal/timers:476:21)"
+            ]
+          }
+        ],
+        "/dlm-ecs-dev/Priv1": [
+          {
+            "type": "aws:cdk:warning",
+            "data": "No routeTableId was provided to the subnet 'subnet-087fad512b11f8f42'. Attempting to read its .routeTable.routeTableId will return null/undefined. (More info: https://github.com/aws/aws-cdk/pull/3171) [ack: @aws-cdk/aws-ec2:noSubnetRouteTableId]",
+            "trace": [
+              "Annotations.addMessage (C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\core\\lib\\annotations.js:1:1608)",
+              "Annotations.addWarningV2 (C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\core\\lib\\annotations.js:1:825)",
+              "new ImportedSubnet (C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\aws-ec2\\lib\\vpc.js:1:34578)",
+              "Subnet.fromSubnetAttributes (C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\aws-ec2\\lib\\vpc.js:1:22562)",
+              "Subnet.fromSubnetId (C:\\Users\\zaido\\AppData\\Local\\Temp\\jsii-kernel-w0q7j9\\node_modules\\aws-cdk-lib\\aws-ec2\\lib\\vpc.js:1:22648)",
+              "C:\\Users\\zaido\\AppData\\Local\\Temp\\tmpunh6k22f\\lib\\program.js:316:151",
+              "Kernel._Kernel_ensureSync (C:\\Users\\zaido\\AppData\\Local\\Temp\\tmpunh6k22f\\lib\\program.js:917:24)",
+              "Kernel.sinvoke (C:\\Users\\zaido\\AppData\\Local\\Temp\\tmpunh6k22f\\lib\\program.js:316:102)",
+              "KernelHost.processRequest (C:\\Users\\zaido\\AppData\\Local\\Temp\\tmpunh6k22f\\lib\\program.js:15482:36)",
+              "KernelHost.run (C:\\Users\\zaido\\AppData\\Local\\Temp\\tmpunh6k22f\\lib\\program.js:15442:22)",
+              "Immediate._onImmediate (C:\\Users\\zaido\\AppData\\Local\\Temp\\tmpunh6k22f\\lib\\program.js:15443:45)",
+              "process.processImmediate (node:internal/timers:476:21)"
+            ]
+          }
+        ],
+        "/dlm-ecs-dev/Service/LB/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ServiceLBE9A1ADBC"
+          }
+        ],
+        "/dlm-ecs-dev/Service/LB/SecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ServiceLBSecurityGroupF7435A5C"
+          }
+        ],
+        "/dlm-ecs-dev/Service/LB/SecurityGroup/to dlmecsdevEcsServiceSG0104886E:8080": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ServiceLBSecurityGrouptodlmecsdevEcsServiceSG0104886E80809F3FD803"
+          }
+        ],
+        "/dlm-ecs-dev/Service/LB/PublicListener/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ServiceLBPublicListener46709EAA"
+          }
+        ],
+        "/dlm-ecs-dev/Service/LB/PublicListener/ECSGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ServiceLBPublicListenerECSGroup0CC8688C"
+          }
+        ],
+        "/dlm-ecs-dev/Service/LoadBalancerDNS": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ServiceLoadBalancerDNSEC5B149E"
+          }
+        ],
+        "/dlm-ecs-dev/Service/ServiceURL": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ServiceServiceURL250C0FB6"
+          }
+        ],
+        "/dlm-ecs-dev/Service/Service/Service": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "Service9571FDD8"
+          }
+        ],
+        "/dlm-ecs-dev/AlbDnsName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AlbDnsName"
+          }
+        ],
+        "/dlm-ecs-dev/EcsLogGroupName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "EcsLogGroupName"
+          }
+        ],
+        "/dlm-ecs-dev/CDKMetadata/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDKMetadata"
+          }
+        ],
+        "/dlm-ecs-dev/BootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BootstrapVersion"
+          }
+        ],
+        "/dlm-ecs-dev/CheckBootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CheckBootstrapVersion"
+          }
+        ]
+      },
+      "displayName": "dlm-ecs-dev"
+    },
+    "Tree": {
+      "type": "cdk:tree",
+      "properties": {
+        "file": "tree.json"
+      }
+    }
+  }
+}
