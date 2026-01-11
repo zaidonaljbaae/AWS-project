@@ -4,5 +4,4 @@ memorySize: 128
 
 package:
   patterns:
-    - "src/app/__init__.py"
-    - "src/app/print_lambda/**"
+    - "src/**"
