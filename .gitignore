@@ -69,3 +69,6 @@ src/.DS_Store
 *.DS_Store
 .DS_Store
 
+# CI/CD vendored dependencies (installed during build)
+src/app/**/vendor/
+

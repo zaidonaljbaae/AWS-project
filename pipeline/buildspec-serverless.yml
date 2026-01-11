@@ -4,10 +4,24 @@ phases:
   install:
     runtime-versions:
       nodejs: 18
-      python: 3.12
+      python: 3.11
     commands:
       - npm i -g serverless
       - npm ci
+      - python -m pip install --upgrade pip
   build:
     commands:
+      # Install Python dependencies per service (each Lambda folder owns its own requirements.txt)
+      # This isolates Flask/PDF/ML deps so they don't bleed across functions.
+      - |
+        set -e
+        for svc in src/app/*; do
+          if [ -f "$svc/requirements.txt" ]; then
+            echo "Installing requirements for $svc ..."
+            rm -rf "$svc/vendor"
+            mkdir -p "$svc/vendor"
+            python -m pip install -r "$svc/requirements.txt" -t "$svc/vendor"
+          fi
+        done
+
       - sls deploy --stage $STAGE --region $AWS_REGION
