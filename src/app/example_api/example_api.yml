@@ -1,10 +1,11 @@
-handler: app.example_api.example_api.handler
+handler: src.app.example_api.example_api.handler
 timeout: 15
 memorySize: 256
 
 package:
   patterns:
-    - "app/example_api/**"
+    - "src/app/__init__.py"
+    - "src/app/example_api/**"
 
 events:
   - httpApi:
