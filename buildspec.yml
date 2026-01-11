@@ -28,6 +28,21 @@ phases:
       - |
           set -euo pipefail
 
+          echo "0) Install per-Lambda Python dependencies (vendor folders)"
+          # Each Lambda folder under src/app/<service>/ owns its own requirements.txt.
+          # We install them into src/app/<service>/vendor so Serverless can package them.
+          for svc in src/app/*; do
+            if [ -f "$svc/requirements.txt" ]; then
+              echo "Installing requirements for $svc ..."
+              rm -rf "$svc/vendor"
+              mkdir -p "$svc/vendor"
+              python -m pip install -r "$svc/requirements.txt" -t "$svc/vendor"
+            fi
+          done
+
+          # Hard fail if Flask wasn't vendored for the Flask Lambda
+          test -d src/app/example_api/vendor/flask || (echo "ERROR: flask was not installed into src/app/example_api/vendor" && exit 1)
+
           echo "1) Deploy Lambda + HTTP API"
           serverless deploy --stage "${STAGE:-dev}" --region "${AWS_REGION:-us-east-1}"
 
