@@ -12,3 +12,5 @@ events:
       path: /api/{proxy+}
       method: ANY
 
+# Keep permissions minimal. Add per-service permissions as you need.
+# iamRoleStatements: []

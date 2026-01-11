@@ -1,11 +1,32 @@
 from __future__ import annotations
 
+"""Flask-based Lambda.
+
+Dependencies for this Lambda are *vendored* under ``src/app/example_api/vendor``
+by the CI/CD build (see ``pipeline/buildspec-serverless.yml``).
+
+AWS Lambda imports this module directly (the handler points here). That means
+we must add ``vendor/`` to ``sys.path`` *before* importing third-party libs like
+Flask.
+"""
+
 import json
 import os
+import sys
 from datetime import datetime, timezone
 
-from flask import Flask, request, jsonify
-import serverless_wsgi
+
+def _add_vendor_to_path() -> None:
+    here = os.path.dirname(__file__)
+    vendor = os.path.join(here, "vendor")
+    if os.path.isdir(vendor) and vendor not in sys.path:
+        sys.path.insert(0, vendor)
+
+
+_add_vendor_to_path()
+
+from flask import Flask, request, jsonify  # noqa: E402
+import serverless_wsgi  # noqa: E402
 
 app = Flask(__name__)
 ROUTE_PREFIX = "/api"
