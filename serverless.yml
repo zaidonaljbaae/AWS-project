@@ -36,6 +36,7 @@ params:
 provider:
   name: aws
   runtime: python3.11
+  versionFunctions: true
   region: ${self:custom.region}
   stage: ${opt:stage, 'dev'}
   logRetentionInDays: 30
