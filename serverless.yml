@@ -80,12 +80,5 @@ resources:
   - ${file(resources/vpc/vpc.yml)}
 
 plugins:
-  - serverless-python-requirements
   - serverless-iam-roles-per-function
   - serverless-plugin-resource-tagging
-
-custom:
-  pythonRequirements:
-    dockerizePip: true
-    slim: true
-    strip: false
