@@ -2,11 +2,6 @@ handler: src.app.print_lambda.print_lambda.handler
 timeout: 29
 memorySize: 128
 
-events:
-  - httpApi:
-      path: /print
-      method: GET
-
 package:
   patterns:
     - "src/app/__init__.py"

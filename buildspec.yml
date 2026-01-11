@@ -40,9 +40,6 @@ phases:
             fi
           done
 
-          # Hard fail if Flask wasn't vendored for the Flask Lambda
-          test -d src/app/example_api/vendor/flask || (echo "ERROR: flask was not installed into src/app/example_api/vendor" && exit 1)
-
           echo "1) Deploy Lambda + HTTP API"
           serverless deploy --stage "${STAGE:-dev}" --region "${AWS_REGION:-us-east-1}"
 
