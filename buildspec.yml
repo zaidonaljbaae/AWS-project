@@ -12,7 +12,13 @@ phases:
           echo "Installing tools..."
           npm i -g serverless@3 aws-cdk
           python -m pip install --upgrade pip
-          npm ci || npm i
+
+          # Avoid failing npm ci if package-lock.json doesn't exist
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm i
+          fi
 
           echo "Installing Flyway CLI..."
           FLYWAY_VER="${FLYWAY_VER:-10.16.0}"
@@ -32,16 +38,20 @@ phases:
           python --version
           java -version
 
-          echo "Running Flyway migrations (auto schemas, no hardcoded names)..."
-          # Required env vars (set them in CodeBuild env/SSM):
-          # DB_JDBC_URL   e.g. jdbc:postgresql://host:5432/dbname
-          # DB_USER
-          # DB_PASSWORD
-          : "${DB_JDBC_URL:?Missing DB_JDBC_URL}"
+          echo "Preparing DB connection for Flyway..."
+          # We expect these env vars to be available in CodeBuild environment:
+          # DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
+          # (Same names you use in serverless.yml provider.environment)
+
+          : "${DB_HOST:?Missing DB_HOST}"
+          : "${DB_PORT:?Missing DB_PORT}"
+          : "${DB_NAME:?Missing DB_NAME}"
           : "${DB_USER:?Missing DB_USER}"
           : "${DB_PASSWORD:?Missing DB_PASSWORD}"
 
-          # Flyway will keep its history table in public and your SQL can create any schemas/tables it wants.
+          export DB_JDBC_URL="jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}"
+
+          echo "Running Flyway migrations (auto schemas, no hardcoded names)..."
           flyway \
             -url="${DB_JDBC_URL}" \
             -user="${DB_USER}" \
@@ -58,8 +68,6 @@ phases:
           set -euo pipefail
 
           echo "0) Install per-Lambda Python dependencies (vendor folders)"
-          # Each Lambda folder under src/app/<service>/ owns its own requirements.txt.
-          # We install them into src/app/<service>/vendor so Serverless can package them.
           for svc in src/app/*; do
             if [ -f "$svc/requirements.txt" ]; then
               echo "Installing requirements for $svc ..."
@@ -73,17 +81,14 @@ phases:
           serverless deploy --stage "${STAGE:-dev}" --region "${AWS_REGION:-us-east-1}"
 
           echo "2) Start Docker daemon (required for CDK Docker assets)"
-          echo "== Privileged checks =="
           id || true
           ls -l /var/run || true
           ls -l /var/run/docker.sock || true
 
           nohup dockerd --host=unix:///var/run/docker.sock >/tmp/dockerd.log 2>&1 &
           sleep 4
-          echo "== dockerd log =="
           tail -n 120 /tmp/dockerd.log || true
 
-          echo "== docker info =="
           docker info
 
           echo "3) Deploy ECS/CDK"
