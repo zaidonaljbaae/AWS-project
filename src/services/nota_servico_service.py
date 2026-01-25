@@ -1,6 +1,7 @@
 # src/services/nota_servico_service.py
 
 from typing import Dict, Any, Optional, List
+from ..common.conexao_banco import engine
 
 from ..repositories.generic_crud_repository import GenericCrudRepository
 
@@ -12,7 +13,7 @@ class NotaServicoService:
     TABLE_NAME = "nota_servico"
 
     def __init__(self, repo: Optional[GenericCrudRepository] = None):
-        self.repo = repo or GenericCrudRepository()
+        self.repo = repo or GenericCrudRepository(engine)
 
     def list(
         self,

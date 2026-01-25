@@ -79,3 +79,6 @@ def get_session():
         raise
     finally:
         session.close()
+
+
+engine = get_engine()
