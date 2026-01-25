@@ -13,7 +13,7 @@ phases:
           npm i -g serverless@3 aws-cdk
           python -m pip install --upgrade pip
 
-          # Avoid failing npm ci if package-lock.json doesn't exist
+          # Use npm ci only when package-lock.json exists
           if [ -f package-lock.json ]; then
             npm ci
           else
@@ -39,17 +39,74 @@ phases:
           java -version
 
           echo "Preparing DB connection for Flyway..."
-          # We expect these env vars to be available in CodeBuild environment:
-          # DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
-          # (Same names you use in serverless.yml provider.environment)
 
+          # Prefer CodeBuild-provided env vars if present.
+          # Otherwise, auto-read from serverless.yml -> params.<stage>.
+          if [ -z "${DB_HOST:-}" ] || [ -z "${DB_PORT:-}" ] || [ -z "${DB_NAME:-}" ] || [ -z "${DB_USER:-}" ] || [ -z "${DB_PASSWORD:-}" ]; then
+            echo "DB_* env vars not fully set. Reading from serverless.yml params..."
+            eval "$(python - <<'PY'
+import os, re, sys
+
+stage = os.getenv("STAGE", "dev")
+path = "serverless.yml"
+
+try:
+    y = open(path, "r", encoding="utf-8").read()
+except FileNotFoundError:
+    print("echo 'ERROR: serverless.yml not found' 1>&2")
+    sys.exit(1)
+
+if not re.search(r"^params:\s*$", y, re.MULTILINE):
+    print("echo 'ERROR: params: section not found in serverless.yml' 1>&2")
+    sys.exit(1)
+
+pattern = rf"^\s{{2}}{re.escape(stage)}:\s*\n(?P<body>(?:^\s{{4,}}.*\n)+)"
+m = re.search(pattern, y, re.MULTILINE)
+if not m:
+    print(f"echo 'ERROR: params.{stage} not found in serverless.yml' 1>&2")
+    sys.exit(1)
+
+body = m.group("body")
+
+def get(key: str) -> str:
+    mm = re.search(rf"^\s+{re.escape(key)}:\s*(.+)\s*$", body, re.MULTILINE)
+    if not mm:
+        print(f"echo 'ERROR: Missing {key} in params.{stage}' 1>&2")
+        sys.exit(1)
+    val = mm.group(1).strip()
+    if (val.startswith('"') and val.endswith('"')) or (val.startswith("'") and val.endswith("'")):
+        val = val[1:-1]
+    return val
+
+host = get("DB_HOST")
+port = get("DB_PORT")
+name = get("DB_NAME")
+user = get("DB_USER")
+pwd  = get("DB_PASSWORD")
+
+def esc(v: str) -> str:
+    # safe single-quote escaping for bash: ' -> '"'"'
+    return v.replace("'", "'\"'\"'")
+
+print(f"export DB_HOST='{esc(host)}'")
+print(f"export DB_PORT='{esc(port)}'")
+print(f"export DB_NAME='{esc(name)}'")
+print(f"export DB_USER='{esc(user)}'")
+print(f"export DB_PASSWORD='{esc(pwd)}'")
+print(f"export DB_JDBC_URL='jdbc:postgresql://{esc(host)}:{esc(port)}/{esc(name)}'")
+PY
+)"
+          else
+            export DB_JDBC_URL="jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}"
+          fi
+
+          # Hard fail if still missing anything
           : "${DB_HOST:?Missing DB_HOST}"
           : "${DB_PORT:?Missing DB_PORT}"
           : "${DB_NAME:?Missing DB_NAME}"
           : "${DB_USER:?Missing DB_USER}"
           : "${DB_PASSWORD:?Missing DB_PASSWORD}"
-
-          export DB_JDBC_URL="jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}"
+          : "${DB_JDBC_URL:?Missing DB_JDBC_URL}"
 
           echo "Running Flyway migrations (auto schemas, no hardcoded names)..."
           flyway \
@@ -81,14 +138,17 @@ phases:
           serverless deploy --stage "${STAGE:-dev}" --region "${AWS_REGION:-us-east-1}"
 
           echo "2) Start Docker daemon (required for CDK Docker assets)"
+          echo "== Privileged checks =="
           id || true
           ls -l /var/run || true
           ls -l /var/run/docker.sock || true
 
           nohup dockerd --host=unix:///var/run/docker.sock >/tmp/dockerd.log 2>&1 &
           sleep 4
+          echo "== dockerd log =="
           tail -n 120 /tmp/dockerd.log || true
 
+          echo "== docker info =="
           docker info
 
           echo "3) Deploy ECS/CDK"
