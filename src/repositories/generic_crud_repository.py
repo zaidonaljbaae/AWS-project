@@ -24,7 +24,7 @@ class Page:
     offset: int
 
 
-class GenericCRUDRepository:
+class GenericCrudRepository:
     def __init__(self, engine: Engine):
         self.engine = engine
         self._table_cache: Dict[Tuple[str, str], sa.Table] = {}
