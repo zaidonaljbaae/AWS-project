@@ -5,6 +5,7 @@ phases:
     runtime-versions:
       nodejs: 20
       python: 3.11
+      java: corretto17
     commands:
       - |
           set -euo pipefail
@@ -12,6 +13,13 @@ phases:
           npm i -g serverless@3 aws-cdk
           python -m pip install --upgrade pip
           npm ci || npm i
+
+          echo "Installing Flyway CLI..."
+          FLYWAY_VER="${FLYWAY_VER:-10.16.0}"
+          curl -L -o /tmp/flyway.tgz "https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/${FLYWAY_VER}/flyway-commandline-${FLYWAY_VER}-linux-x64.tar.gz"
+          tar -xzf /tmp/flyway.tgz -C /tmp
+          export PATH="$PATH:/tmp/flyway-${FLYWAY_VER}"
+          flyway -v
 
   pre_build:
     commands:
@@ -22,6 +30,27 @@ phases:
           serverless --version
           cdk --version
           python --version
+          java -version
+
+          echo "Running Flyway migrations (auto schemas, no hardcoded names)..."
+          # Required env vars (set them in CodeBuild env/SSM):
+          # DB_JDBC_URL   e.g. jdbc:postgresql://host:5432/dbname
+          # DB_USER
+          # DB_PASSWORD
+          : "${DB_JDBC_URL:?Missing DB_JDBC_URL}"
+          : "${DB_USER:?Missing DB_USER}"
+          : "${DB_PASSWORD:?Missing DB_PASSWORD}"
+
+          # Flyway will keep its history table in public and your SQL can create any schemas/tables it wants.
+          flyway \
+            -url="${DB_JDBC_URL}" \
+            -user="${DB_USER}" \
+            -password="${DB_PASSWORD}" \
+            -locations="filesystem:flyway/sql" \
+            -defaultSchema="public" \
+            -table="flyway_schema_history" \
+            -baselineOnMigrate=true \
+            migrate
 
   build:
     commands:
@@ -63,7 +92,6 @@ phases:
           cdk bootstrap "aws://${AWS_ACCOUNT_ID}/${AWS_REGION:-us-east-1}"
           cdk deploy --all --require-approval never
           cd ../..
-
 
 artifacts:
   files:
