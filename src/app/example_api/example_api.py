@@ -37,9 +37,6 @@ def list_nota_servico():
     limit = int(request.args.get("limit", 50))
     offset = int(request.args.get("offset", 0))
 
-    if schema not in {"nota_avulsa", "nota_fiscal"}:
-        return jsonify({"error": "invalid schema"}), 400
-
     try:
         items = nota_servico_service.list(
             schema=schema,
