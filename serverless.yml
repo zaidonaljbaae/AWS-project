@@ -7,33 +7,42 @@ custom:
 params:
   dev:
     VPCID: vpc-0c07cdd25c80eb7a3
-    SUBNETIDS: 
+    SUBNETIDS:
       - subnet-018313b2802ae2719
       - subnet-087fad512b11f8f42
+
     # RDS security group (must allow inbound 5432 from the Lambda SG)
     RDSSGID: sg-065b9a017b02f9a66
     DB_HOST: database.c2h2uwui8lj0.us-east-1.rds.amazonaws.com
     DB_PORT: 5432
     DB_NAME: postgres
     DB_USER: postgres
-    DB_PASSWORD: Aws-0020alj.333
+    DB_PASSWORD: <PUT_DEV_DB_PASSWORD_HERE>
 
     S3_BUCKET_NAME: dev-bucket-376129844054
+
+    # Cognito (User Pool)
     ISSUERURL: https://cognito-idp.us-east-1.amazonaws.com/us-east-1_6bPvMXkYd
     AUDIENCE: 21vpvaiih8133fmci5ui0g8f9g
 
   prod:
     VPCID: vpc-0c07cdd25c80eb7a3
-    SUBNETIDS: 
+    SUBNETIDS:
       - subnet-018313b2802ae2719
       - subnet-087fad512b11f8f42
-    # RDS security group (must allow inbound 5432 from the Lambda SG)
+
     RDSSGID: sg-065b9a017b02f9a66
     DB_HOST: database.c2h2uwui8lj0.us-east-1.rds.amazonaws.com
     DB_PORT: 5432
     DB_NAME: postgres
     DB_USER: postgres
-    DB_PASSWORD: Aws-0020alj.333
+    DB_PASSWORD: <PUT_PROD_DB_PASSWORD_HERE>
+
+    S3_BUCKET_NAME: <PUT_PROD_BUCKET_NAME_HERE>
+
+    # Cognito (User Pool)
+    ISSUERURL: https://cognito-idp.us-east-1.amazonaws.com/us-east-1_6bPvMXkYd
+    AUDIENCE: 21vpvaiih8133fmci5ui0g8f9g
 
 provider:
   name: aws
@@ -49,7 +58,7 @@ provider:
       cognitoJwt:
         type: jwt
         identitySource: $request.header.Authorization
-        issuerUrl: https://cognito-idp.us-east-1.amazonaws.com/us-east-1_6bPvMXkYd
+        issuerUrl: ${param:ISSUERURL}
         audience:
           - ${param:AUDIENCE}
 
@@ -67,7 +76,9 @@ provider:
     DB_HOST: ${param:DB_HOST}
     DB_PORT: ${param:DB_PORT}
 
-
+    # Useful for app-side validation (optional, defense in depth)
+    COGNITO_ISSUER: ${param:ISSUERURL}
+    COGNITO_AUDIENCE: ${param:AUDIENCE}
 
 package:
   individually: true
