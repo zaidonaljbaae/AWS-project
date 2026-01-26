@@ -10,7 +10,8 @@ params:
     SUBNETIDS: 
       - subnet-018313b2802ae2719
       - subnet-087fad512b11f8f42
-    RDSSGID: sg-04babc3712bf0261d
+    # RDS security group (must allow inbound 5432 from the Lambda SG)
+    RDSSGID: sg-065b9a017b02f9a66
     DB_HOST: database.c2h2uwui8lj0.us-east-1.rds.amazonaws.com
     DB_PORT: 5432
     DB_NAME: postgres
@@ -26,7 +27,8 @@ params:
     SUBNETIDS: 
       - subnet-018313b2802ae2719
       - subnet-087fad512b11f8f42
-    RDSSGID: sg-04babc3712bf0261d
+    # RDS security group (must allow inbound 5432 from the Lambda SG)
+    RDSSGID: sg-065b9a017b02f9a66
     DB_HOST: database.c2h2uwui8lj0.us-east-1.rds.amazonaws.com
     DB_PORT: 5432
     DB_NAME: postgres

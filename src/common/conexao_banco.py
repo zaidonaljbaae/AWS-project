@@ -11,6 +11,7 @@ Database connection helper.
 import os
 from contextlib import contextmanager
 from typing import Optional
+import logging
 
 import sqlalchemy as sa
 from sqlalchemy.orm import sessionmaker
@@ -50,9 +51,15 @@ def get_engine() -> sa.Engine:
 
     db_url = _build_db_url()
 
-    kwargs = {
-        "pool_pre_ping": True,
-    }
+    kwargs: dict = {"pool_pre_ping": True}
+
+    # Fast-fail DB connects so Lambda doesn't hit its own timeout.
+    connect_timeout = int(os.getenv("DB_CONNECT_TIMEOUT", "3"))
+    connect_args = {}
+    if not db_url.startswith("sqlite"):
+        # psycopg2 uses 'connect_timeout' (seconds)
+        connect_args["connect_timeout"] = connect_timeout
+        kwargs["connect_args"] = connect_args
 
     if not db_url.startswith("sqlite"):
         kwargs.update(
@@ -61,7 +68,17 @@ def get_engine() -> sa.Engine:
             pool_recycle=int(os.getenv("DB_POOL_RECYCLE", "300")),
         )
 
-    _ENGINE = sa.create_engine(db_url, **kwargs)
+    log = logging.getLogger(__name__)
+    try:
+        _ENGINE = sa.create_engine(db_url, **kwargs)
+    except Exception:
+        # Do not leak secrets in logs.
+        safe_url = db_url
+        if "@" in safe_url and ":" in safe_url.split("@", 1)[0]:
+            creds, rest = safe_url.split("@", 1)
+            safe_url = "***@" + rest
+        log.exception("Failed to create SQLAlchemy engine", extra={"db_url": safe_url})
+        raise
     _SessionLocal = sessionmaker(bind=_ENGINE, autoflush=False, autocommit=False)
 
     return _ENGINE

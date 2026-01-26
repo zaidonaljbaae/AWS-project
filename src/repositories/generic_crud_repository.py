@@ -11,6 +11,7 @@ This repository keeps things intentionally small: list, get, create, update, del
 
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Tuple
+import logging
 
 import sqlalchemy as sa
 from sqlalchemy.engine import Engine
@@ -35,7 +36,15 @@ class GenericCrudRepository:
             return self._table_cache[key]
 
         metadata = sa.MetaData()
-        table = sa.Table(table_name, metadata, schema=schema, autoload_with=self.engine)
+        log = logging.getLogger(__name__)
+        try:
+            table = sa.Table(table_name, metadata, schema=schema, autoload_with=self.engine)
+        except Exception:
+            log.exception(
+                "Failed to reflect table",
+                extra={"schema": schema, "table_name": table_name},
+            )
+            raise
         self._table_cache[key] = table
         return table
 
@@ -59,9 +68,14 @@ class GenericCrudRepository:
 
         count_stmt = sa.select(sa.func.count()).select_from(table).where(where_clause)
 
-        with self.engine.connect() as conn:
-            total = int(conn.execute(count_stmt).scalar() or 0)
-            rows = conn.execute(base_stmt.limit(limit).offset(offset)).mappings().all()
+        log = logging.getLogger(__name__)
+        try:
+            with self.engine.connect() as conn:
+                total = int(conn.execute(count_stmt).scalar() or 0)
+                rows = conn.execute(base_stmt.limit(limit).offset(offset)).mappings().all()
+        except Exception:
+            log.exception("DB query failed", extra={"limit": limit, "offset": offset})
+            raise
 
         return Page(items=[dict(r) for r in rows], total=total, limit=limit, offset=offset)
 
