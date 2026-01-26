@@ -1,25 +1,5 @@
 from __future__ import annotations
-
-"""CDK stack: ECS Fargate + public Application Load Balancer.
-
-This repository is a *generic template*.
-
-Defaults (works without extra config):
-- Creates a new VPC (2 AZs).
-- Deploys a simple Flask container from src/app/ecs_service.
-- Creates an Internet-facing ALB (HTTP/80) forwarding to the Fargate service.
-
-Optional: import existing VPC
-- If you already have a VPC, you can import it via CDK context:
-
-  cdk deploy \
-    -c stage=dev \
-    -c useExistingVpc=true \
-    -c vpcId=vpc-xxxx \
-    -c publicSubnetIds='["subnet-a","subnet-b"]' \
-    -c privateSubnetIds='["subnet-c","subnet-d"]'
-
-"""
+from pathlib import Path
 
 import os
 from typing import List, Optional
@@ -105,18 +85,21 @@ class TemplateEcsStack(Stack):
 
         task_def = ecs.FargateTaskDefinition(self, "TaskDef", cpu=256, memory_limit_mib=512)
 
-        # IMPORTANT:
-        # CodeBuild runs `cd infra/cdk` before `cdk deploy`.
-        # So relative paths like "src/app/..." must be resolved from the *repo root*.
-        # This file typically lives at: infra/cdk/stacks/ecs_stack.py
-        # => repo root is ../../../ from here.
-        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+        # ✅ Fix Docker build context path using pathlib (absolute path)
+        # This file: infra/cdk/stacks/ecs_stack.py
+        # Repo root = parents[3]
+        repo_root = Path(__file__).resolve().parents[3]
+        ecs_service_dir = repo_root / "src" / "app" / "ecs_service"
+
+        if not ecs_service_dir.is_dir():
+            raise ValueError(f"Cannot find ecs_service directory: {ecs_service_dir}")
 
         container = task_def.add_container(
             "ApiApp",
             image=ecs.ContainerImage.from_asset(
-            directory="src/app/ecs_service",
-            file="Dockerfile"),
+                directory=str(ecs_service_dir),
+                file="Dockerfile",
+            ),
             logging=ecs.LogDrivers.aws_logs(stream_prefix="ecs", log_group=log_group),
             environment={"STAGE": stage},
         )
