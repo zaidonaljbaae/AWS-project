@@ -1,17 +1,11 @@
 from __future__ import annotations
 
-"""Database helper (template).
+"""
+Database connection helper.
 
-Goal:
-- Never crash just because DB env vars are missing.
-- Provide a clean upgrade path to real DBs (RDS/Aurora).
-
-How it works:
-- If DB_URL env var is set, SQLAlchemy uses it.
-- Otherwise, it falls back to SQLite in-memory (useful for local dev/tests).
-
-Example DB_URL:
-  postgresql+psycopg2://USER:PASSWORD@HOST:5432/DBNAME
+- Uses PostgreSQL when DB_* env vars are provided
+- Falls back to SQLite (memory) for local/dev
+- Safe for AWS Lambda (low pool size)
 """
 
 import os
@@ -25,52 +19,65 @@ _ENGINE: Optional[sa.Engine] = None
 _SessionLocal: Optional[sessionmaker] = None
 
 
-def _build_engine() -> sa.Engine:
-    db_url = os.getenv("DB_URL", "").strip()
+def _build_db_url() -> str:
+    """
+    Build DB URL from environment variables.
+    """
+    db_url = os.getenv("DB_URL")
+    if db_url:
+        return db_url
 
-    if not db_url:
-        # Safe default: in-memory DB (no external dependencies)
-        db_url = "sqlite+pysqlite:///:memory:"
+    host = os.getenv("DB_HOST")
+    port = os.getenv("DB_PORT")
+    name = os.getenv("DB_NAME")
+    user = os.getenv("DB_USER")
+    password = os.getenv("DB_PASSWORD")
 
-    # Pooling defaults (Lambda-friendly). Override in ECS when needed.
-    pool_size = int(os.getenv("DB_POOL_SIZE", "2"))
-    max_overflow = int(os.getenv("DB_MAX_OVERFLOW", "2"))
-    pool_recycle = int(os.getenv("DB_POOL_RECYCLE", "300"))
+    if all([host, port, name, user, password]):
+        return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{name}"
 
-    # SQLite doesn't support pool_size/max_overflow the same way; SQLAlchemy handles it,
-    # but we keep settings only for non-sqlite connections.
+    return "sqlite+pysqlite:///:memory:"
+
+
+def get_engine() -> sa.Engine:
+    """
+    Return a singleton SQLAlchemy Engine.
+    """
+    global _ENGINE, _SessionLocal
+
+    if _ENGINE is not None:
+        return _ENGINE
+
+    db_url = _build_db_url()
+
     kwargs = {
         "pool_pre_ping": True,
     }
 
     if not db_url.startswith("sqlite"):
         kwargs.update(
-            {
-                "pool_size": pool_size,
-                "max_overflow": max_overflow,
-                "pool_recycle": pool_recycle,
-            }
+            pool_size=int(os.getenv("DB_POOL_SIZE", "2")),
+            max_overflow=int(os.getenv("DB_MAX_OVERFLOW", "2")),
+            pool_recycle=int(os.getenv("DB_POOL_RECYCLE", "300")),
         )
 
-    return sa.create_engine(db_url, **kwargs)
+    _ENGINE = sa.create_engine(db_url, **kwargs)
+    _SessionLocal = sessionmaker(bind=_ENGINE, autoflush=False, autocommit=False)
 
-
-def get_engine() -> sa.Engine:
-    global _ENGINE, _SessionLocal
-    if _ENGINE is None:
-        _ENGINE = _build_engine()
-        _SessionLocal = sessionmaker(bind=_ENGINE, autoflush=False, autocommit=False)
     return _ENGINE
 
 
 @contextmanager
 def get_session():
-    """SQLAlchemy session context manager."""
+    """
+    SQLAlchemy session context manager.
+    """
     global _SessionLocal
+
     if _SessionLocal is None:
         get_engine()
 
-    session = _SessionLocal()  # type: ignore[misc]
+    session = _SessionLocal()
     try:
         yield session
         session.commit()
@@ -79,6 +86,3 @@ def get_session():
         raise
     finally:
         session.close()
-
-
-engine = get_engine()

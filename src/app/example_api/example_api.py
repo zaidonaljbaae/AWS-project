@@ -33,7 +33,7 @@ def now_iso() -> str:
 
 @app.get(f"{ROUTE_PREFIX}/nota-servico")
 def list_nota_servico():
-    schema = request.args.get("schema", "nota_avulsa")
+    schema = request.args.get("schema", "public")
     limit = int(request.args.get("limit", 50))
     offset = int(request.args.get("offset", 0))
 
