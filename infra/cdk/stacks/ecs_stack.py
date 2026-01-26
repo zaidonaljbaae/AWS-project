@@ -21,6 +21,7 @@ Optional: import existing VPC
 
 """
 
+import os
 from typing import List, Optional
 
 from constructs import Construct
@@ -78,7 +79,9 @@ class TemplateEcsStack(Stack):
                 nat_gateways=1,
                 subnet_configuration=[
                     ec2.SubnetConfiguration(name="public", subnet_type=ec2.SubnetType.PUBLIC),
-                    ec2.SubnetConfiguration(name="private", subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS),
+                    ec2.SubnetConfiguration(
+                        name="private", subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS
+                    ),
                 ],
             )
             private_selection = ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS)
@@ -102,11 +105,19 @@ class TemplateEcsStack(Stack):
 
         task_def = ecs.FargateTaskDefinition(self, "TaskDef", cpu=256, memory_limit_mib=512)
 
+        # IMPORTANT:
+        # CodeBuild runs `cd infra/cdk` before `cdk deploy`.
+        # So relative paths like "src/app/..." must be resolved from the *repo root*.
+        # This file typically lives at: infra/cdk/stacks/ecs_stack.py
+        # => repo root is ../../../ from here.
+        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+
         container = task_def.add_container(
             "ApiApp",
             image=ecs.ContainerImage.from_asset(
-            directory=".",
-            file="src/app/ecs_service/Dockerfile"),
+                directory=repo_root,  # build context = repository root
+                file="src/app/ecs_service/Dockerfile",
+            ),
             logging=ecs.LogDrivers.aws_logs(stream_prefix="ecs", log_group=log_group),
             environment={"STAGE": stage},
         )
