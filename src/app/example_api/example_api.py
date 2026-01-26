@@ -38,7 +38,7 @@ def list_nota_servico():
     offset = int(request.args.get("offset", 0))
 
     try:
-        items = nota_servico_service.list(
+        data = nota_servico_service.list(
             schema=schema,
             limit=limit,
             offset=offset,
@@ -46,8 +46,8 @@ def list_nota_servico():
         return jsonify(
             {
                 "schema": schema,
-                "count": len(items),
-                "items": items,
+                "count": len(data.items),
+                "items": data.items,
             }
         ), 200
     except Exception as exc:
