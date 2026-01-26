@@ -1,7 +1,6 @@
 handler: src.app.example_api.example_api.handler
 timeout: 15
 memorySize: 256
-alias: live
 
 package:
   patterns:

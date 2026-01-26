@@ -1,7 +1,6 @@
 handler: src.app.print_lambda.print_lambda.handler
 timeout: 29
 memorySize: 128
-alias: live
 
 package:
   patterns:
