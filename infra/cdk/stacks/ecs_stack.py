@@ -115,9 +115,8 @@ class TemplateEcsStack(Stack):
         container = task_def.add_container(
             "ApiApp",
             image=ecs.ContainerImage.from_asset(
-                directory=repo_root,  # build context = repository root
-                file="src/app/ecs_service/Dockerfile",
-            ),
+            directory="src/app/ecs_service",
+            file="Dockerfile"),
             logging=ecs.LogDrivers.aws_logs(stream_prefix="ecs", log_group=log_group),
             environment={"STAGE": stage},
         )
