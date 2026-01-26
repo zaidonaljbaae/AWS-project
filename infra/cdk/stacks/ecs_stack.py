@@ -13,6 +13,7 @@ from aws_cdk import (
     aws_ecs as ecs,
     aws_ecs_patterns as ecs_patterns,
     aws_logs as logs,
+    aws_iam as iam,
 )
 
 
@@ -94,14 +95,34 @@ class TemplateEcsStack(Stack):
         if not ecs_service_dir.is_dir():
             raise ValueError(f"Cannot find ecs_service directory: {ecs_service_dir}")
 
+        # IMPORTANT:
+        # The Dockerfile copies paths like `src/common` and `src/models`, so the
+        # Docker build *context* must be the repository root (not ecs_service_dir).
+        docker_context_dir = repo_root
+        dockerfile_relpath = "src/app/ecs_service/Dockerfile"
+
+        db_secret_arn = os.getenv("DB_SECRET_ARN") or str(self.node.try_get_context("dbSecretArn") or "")
+        if db_secret_arn:
+            task_def.task_role.add_to_policy(
+                iam.PolicyStatement(
+                    actions=["secretsmanager:GetSecretValue"],
+                    resources=[db_secret_arn],
+                )
+            )
+
         container = task_def.add_container(
             "ApiApp",
             image=ecs.ContainerImage.from_asset(
-                directory=str(ecs_service_dir),
-                file="Dockerfile",
+                directory=str(docker_context_dir),
+                file=dockerfile_relpath,
             ),
             logging=ecs.LogDrivers.aws_logs(stream_prefix="ecs", log_group=log_group),
-            environment={"STAGE": stage},
+            environment={
+                "STAGE": stage,
+                # If you store DB credentials in Secrets Manager, pass the ARN here.
+                # The app will fall back to DB_* env vars if not set.
+                "DB_SECRET_ARN": db_secret_arn,
+            },
         )
         container.add_port_mappings(ecs.PortMapping(container_port=8080))
 

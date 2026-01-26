@@ -11,5 +11,14 @@ events:
   - httpApi:
       path: /api/{proxy+}
       method: ANY
-      authorizers:
+      # Serverless v3 expects `authorizer` (not `authorizers`) on the event
+      authorizer:
         name: cognitoJwt
+
+iamRoleStatements:
+  # Allow the function to fetch DB credentials from AWS Secrets Manager
+  - Effect: Allow
+    Action:
+      - secretsmanager:GetSecretValue
+    Resource:
+      - ${param:DB_SECRET_ARN}

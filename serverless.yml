@@ -17,7 +17,9 @@ params:
     DB_PORT: 5432
     DB_NAME: postgres
     DB_USER: postgres
-    DB_PASSWORD: <PUT_DEV_DB_PASSWORD_HERE>
+    # Store DB credentials in AWS Secrets Manager (recommended).
+    # Secret JSON example: {"username":"postgres","password":"***","host":"...","port":5432,"dbname":"postgres"}
+    DB_SECRET_ARN: <PUT_DEV_DB_SECRET_ARN_HERE>
 
     S3_BUCKET_NAME: dev-bucket-376129844054
 
@@ -36,7 +38,7 @@ params:
     DB_PORT: 5432
     DB_NAME: postgres
     DB_USER: postgres
-    DB_PASSWORD: <PUT_PROD_DB_PASSWORD_HERE>
+    DB_SECRET_ARN: <PUT_PROD_DB_SECRET_ARN_HERE>
 
     S3_BUCKET_NAME: <PUT_PROD_BUCKET_NAME_HERE>
 
@@ -72,9 +74,9 @@ provider:
     S3_BUCKET_NAME: ${param:S3_BUCKET_NAME}
     DB_NAME: ${param:DB_NAME}
     DB_USER: ${param:DB_USER}
-    DB_PASSWORD: ${param:DB_PASSWORD}
     DB_HOST: ${param:DB_HOST}
     DB_PORT: ${param:DB_PORT}
+    DB_SECRET_ARN: ${param:DB_SECRET_ARN}
 
     # Useful for app-side validation (optional, defense in depth)
     COGNITO_ISSUER: ${param:ISSUERURL}

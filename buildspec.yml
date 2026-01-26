@@ -1,5 +1,19 @@
 version: 0.2
 
+env:
+  variables:
+    # Defaults (can be overridden in CodeBuild/CodePipeline)
+    STAGE: "dev"
+    AWS_REGION: "us-east-1"
+    RUN_MIGRATIONS: "true"
+    RUN_CDK_BOOTSTRAP: "false"
+
+cache:
+  paths:
+    - 'node_modules/**/*'
+    - '/root/.cache/pip/**/*'
+    - '/root/.npm/**/*'
+
 phases:
   install:
     runtime-versions:
@@ -19,12 +33,17 @@ phases:
             npm i
           fi
 
-          echo "Installing Flyway CLI..."
-          FLYWAY_VER="${FLYWAY_VER:-10.16.0}"
-          curl -L -o /tmp/flyway.tgz "https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/${FLYWAY_VER}/flyway-commandline-${FLYWAY_VER}-linux-x64.tar.gz"
-          tar -xzf /tmp/flyway.tgz -C /tmp
-          export PATH="$PATH:/tmp/flyway-${FLYWAY_VER}"
-          flyway -v
+          # Flyway is only needed when running DB migrations.
+          if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
+            echo "Installing Flyway CLI..."
+            FLYWAY_VER="${FLYWAY_VER:-10.16.0}"
+            curl -L -o /tmp/flyway.tgz "https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/${FLYWAY_VER}/flyway-commandline-${FLYWAY_VER}-linux-x64.tar.gz"
+            tar -xzf /tmp/flyway.tgz -C /tmp
+            export PATH="$PATH:/tmp/flyway-${FLYWAY_VER}"
+            flyway -v
+          else
+            echo "Skipping Flyway install (RUN_MIGRATIONS=false)"
+          fi
 
   pre_build:
     commands:
@@ -37,38 +56,50 @@ phases:
           python --version
           java -version
 
-          echo "Preparing DB connection for Flyway..."
-          if [ -z "${DB_HOST:-}" ] || [ -z "${DB_PORT:-}" ] || [ -z "${DB_NAME:-}" ] || [ -z "${DB_USER:-}" ] || [ -z "${DB_PASSWORD:-}" ]; then
-            echo "DB_* env vars not fully set. Reading from serverless.yml params..."
-            eval "$(python scripts/read_db_from_serverless.py)"
-          else
+          if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
+            echo "Preparing DB connection for Flyway (Secrets Manager recommended)..."
+
+            # 1) Determine DB_SECRET_ARN (either from env, or from serverless.yml stage params)
+            if [ -z "${DB_SECRET_ARN:-}" ]; then
+              python scripts/read_params_from_serverless.py > /tmp/params.sh
+              source /tmp/params.sh
+            fi
+
+            # 2) Load DB connection info from Secrets Manager (preferred). If you still use plain env vars,
+            #    set DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASSWORD in CodeBuild environment.
+            if [ -n "${DB_SECRET_ARN:-}" ] && [ -z "${DB_PASSWORD:-}" ]; then
+              python scripts/load_db_secret.py > /tmp/db_env.sh
+              source /tmp/db_env.sh
+            fi
+
+            : "${DB_HOST:?Missing DB_HOST}"
+            : "${DB_PORT:?Missing DB_PORT}"
+            : "${DB_NAME:?Missing DB_NAME}"
+            : "${DB_USER:?Missing DB_USER}"
+            : "${DB_PASSWORD:?Missing DB_PASSWORD}"
             export DB_JDBC_URL="jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}"
+
+            echo "Running Flyway migrations..."
+            flyway \
+              -url="${DB_JDBC_URL}" \
+              -user="${DB_USER}" \
+              -password="${DB_PASSWORD}" \
+              -locations="filesystem:flyway/sql" \
+              -defaultSchema="public" \
+              -table="flyway_schema_history" \
+              -baselineOnMigrate=true \
+              migrate
+          else
+            echo "Skipping Flyway migrations (RUN_MIGRATIONS=false)"
           fi
-
-          : "${DB_HOST:?Missing DB_HOST}"
-          : "${DB_PORT:?Missing DB_PORT}"
-          : "${DB_NAME:?Missing DB_NAME}"
-          : "${DB_USER:?Missing DB_USER}"
-          : "${DB_PASSWORD:?Missing DB_PASSWORD}"
-          : "${DB_JDBC_URL:?Missing DB_JDBC_URL}"
-
-          echo "Running Flyway migrations..."
-          flyway \
-            -url="${DB_JDBC_URL}" \
-            -user="${DB_USER}" \
-            -password="${DB_PASSWORD}" \
-            -locations="filesystem:flyway/sql" \
-            -defaultSchema="public" \
-            -table="flyway_schema_history" \
-            -baselineOnMigrate=true \
-            migrate
 
   build:
     commands:
       - |
           set -euo pipefail
           echo "0) Install per-Lambda Python dependencies (vendor folders)"
-          for svc in src/app/*; do
+          # Only install for Lambda services (skip ecs_service).
+          for svc in src/app/example_api src/app/print_lambda; do
             if [ -f "$svc/requirements.txt" ]; then
               echo "Installing requirements for $svc ..."
               rm -rf "$svc/vendor"
@@ -80,16 +111,17 @@ phases:
           echo "1) Deploy Lambda + HTTP API"
           serverless deploy --stage "${STAGE:-dev}" --region "${AWS_REGION:-us-east-1}"
 
-          echo "2) Start Docker daemon (required for CDK Docker assets)"
-          nohup dockerd --host=unix:///var/run/docker.sock >/tmp/dockerd.log 2>&1 &
-          sleep 4
-          tail -n 120 /tmp/dockerd.log || true
+          echo "2) Docker info (CodeBuild already provides Docker daemon)"
           docker info
 
           echo "3) Deploy ECS/CDK"
           cd infra/cdk
           python -m pip install -r requirements.txt
-          cdk bootstrap "aws://${AWS_ACCOUNT_ID}/${AWS_REGION:-us-east-1}"
+          if [ "${RUN_CDK_BOOTSTRAP:-false}" = "true" ]; then
+            cdk bootstrap "aws://${AWS_ACCOUNT_ID}/${AWS_REGION:-us-east-1}"
+          else
+            echo "Skipping cdk bootstrap (RUN_CDK_BOOTSTRAP=false)"
+          fi
           cdk deploy --all --require-approval never
           cd ../..
 
