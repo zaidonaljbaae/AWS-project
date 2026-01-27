@@ -13,13 +13,6 @@ params:
 
     # RDS security group (must allow inbound 5432 from the Lambda SG)
     RDSSGID: sg-065b9a017b02f9a66
-    DB_HOST: database.c2h2uwui8lj0.us-east-1.rds.amazonaws.com
-    DB_PORT: 5432
-    DB_NAME: postgres
-    DB_USER: postgres
-    # Store DB credentials in AWS Secrets Manager (recommended).
-    # Secret JSON example: {"username":"postgres","password":"***","host":"...","port":5432,"dbname":"postgres"}
-    DB_SECRET_ARN: <PUT_DEV_DB_SECRET_ARN_HERE>
 
     S3_BUCKET_NAME: dev-bucket-376129844054
 
@@ -34,11 +27,6 @@ params:
       - subnet-087fad512b11f8f42
 
     RDSSGID: sg-065b9a017b02f9a66
-    DB_HOST: database.c2h2uwui8lj0.us-east-1.rds.amazonaws.com
-    DB_PORT: 5432
-    DB_NAME: postgres
-    DB_USER: postgres
-    DB_SECRET_ARN: <PUT_PROD_DB_SECRET_ARN_HERE>
 
     S3_BUCKET_NAME: <PUT_PROD_BUCKET_NAME_HERE>
 
@@ -72,13 +60,14 @@ provider:
   environment:
     ENVIRONMENT: ${self:custom.stage}
     S3_BUCKET_NAME: ${param:S3_BUCKET_NAME}
-    DB_NAME: ${param:DB_NAME}
-    DB_USER: ${param:DB_USER}
-    DB_HOST: ${param:DB_HOST}
-    DB_PORT: ${param:DB_PORT}
-    DB_SECRET_ARN: ${param:DB_SECRET_ARN}
 
-    # Useful for app-side validation (optional, defense in depth)
+    DB_HOST: ${env:DB_HOST}
+    DB_PORT: ${env:DB_PORT}
+    DB_NAME: ${env:DB_NAME}
+    DB_USER: ${env:DB_USER}
+    DB_PASSWORD: ${env:DB_PASSWORD}
+
+    # Useful for app-side validation (optional)
     COGNITO_ISSUER: ${param:ISSUERURL}
     COGNITO_AUDIENCE: ${param:AUDIENCE}
 
