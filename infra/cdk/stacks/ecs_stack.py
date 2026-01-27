@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from aws_cdk import (
     Stack,
     Duration,
-    RemovalPolicy,
     aws_ec2 as ec2,
     aws_ecs as ecs,
     aws_ecs_patterns as ecs_patterns,
@@ -18,8 +18,27 @@ class TemplateEcsStack(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        # ====== Networking (use default VPC, or replace with your VPC lookup) ======
-        vpc = ec2.Vpc.from_lookup(self, "VPC", is_default=True)
+        # ====== Networking ======
+        # IMPORTANT: An ALB can only attach Security Groups from the SAME VPC.
+        # If you previously deployed this stack using a different VPC and later changed the lookup,
+        # CloudFormation can fail with:
+        #   "One or more security groups are invalid"
+        #
+        # Pro rule: make the VPC choice explicit and stable across deployments.
+        #
+        # Options:
+        # 1) Provide an existing VPC id via env var VPC_ID (recommended in shared AWS accounts)
+        # 2) If VPC_ID is not set, CDK will CREATE a dedicated VPC (recommended for demos/sandboxes)
+        vpc_id = os.getenv("VPC_ID")
+        if vpc_id:
+            vpc = ec2.Vpc.from_lookup(self, "VPC", vpc_id=vpc_id)
+        else:
+            vpc = ec2.Vpc(
+                self,
+                "AppVpc",
+                max_azs=2,
+                nat_gateways=1,
+            )
 
         # ====== ECS Cluster ======
         cluster = ecs.Cluster(self, "Cluster", vpc=vpc)
@@ -41,7 +60,7 @@ class TemplateEcsStack(Stack):
         container = task_def.add_container(
             "AppContainer",
             image=ecs.ContainerImage.from_asset(
-                directory=str(repo_root),                 # ✅ build context = root
+                directory=str(repo_root),  # ✅ build context = root
                 file=str(dockerfile_path.relative_to(repo_root)),  # ✅ Dockerfile path relative
                 exclude=[
                     "**/cdk.out/**",
@@ -59,8 +78,7 @@ class TemplateEcsStack(Stack):
                 stream_prefix="ecs",
                 log_retention=logs.RetentionDays.ONE_WEEK,
             ),
-            environment={
-            },
+            environment={},
         )
 
         container.add_port_mappings(
