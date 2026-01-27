@@ -1,5 +1,5 @@
 from flask import Flask, Response, request
-from ...common.authorization import get_current_user
+from common.authorization import get_current_user
 
 app = Flask(__name__)
 

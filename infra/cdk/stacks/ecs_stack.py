@@ -30,14 +30,18 @@ class TemplateEcsStack(Stack):
         # 1) Provide an existing VPC id via env var VPC_ID (recommended in shared AWS accounts)
         # 2) If VPC_ID is not set, CDK will CREATE a dedicated VPC (recommended for demos/sandboxes)
         vpc_id = os.getenv("VPC_ID")
-        if vpc_id:
-            vpc = ec2.Vpc.from_lookup(self, "VPC", vpc_id=vpc_id)
-        else:
-            vpc = ec2.Vpc(
-                self,
-                "AppVpc",
-                max_azs=2,
-                nat_gateways=1,
+        if not vpc_id:
+            raise ValueError("VPC_ID is required. Set VPC_ID to your existing VPC.")
+
+        vpc = ec2.Vpc.from_lookup(self, "VPC", vpc_id=vpc_id)
+
+        subnet_ids_env = os.getenv("SUBNET_IDS", "")
+        subnet_ids = [s.strip() for s in subnet_ids_env.split(",") if s.strip()]
+
+        subnet_selection = None
+        if subnet_ids:
+            subnet_selection = ec2.SubnetSelection(
+                subnets=[ec2.Subnet.from_subnet_id(self, f"Subnet{i}", sid) for i, sid in enumerate(subnet_ids)]
             )
 
         # ====== ECS Cluster ======
@@ -82,7 +86,7 @@ class TemplateEcsStack(Stack):
         )
 
         container.add_port_mappings(
-            ecs.PortMapping(container_port=8000, protocol=ecs.Protocol.TCP)
+            ecs.PortMapping(container_port=8080, protocol=ecs.Protocol.TCP)
         )
 
         # ====== Fargate Service + ALB (simple pattern) ======
@@ -94,4 +98,6 @@ class TemplateEcsStack(Stack):
             desired_count=1,
             public_load_balancer=True,
             health_check_grace_period=Duration.seconds(60),
+            vpc_subnets=subnet_selection,
+
         )

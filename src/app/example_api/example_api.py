@@ -9,7 +9,7 @@ from flask import Flask, request, jsonify
 import serverless_wsgi
 
 from ...services.nota_servico_service import NotaServicoService
-from ...common.authorization import authenticate
+from common.authorization import authenticate
 
 # -----------------------------------------------------------------------------
 # App configuration
