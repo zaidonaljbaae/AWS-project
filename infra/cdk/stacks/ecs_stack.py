@@ -98,6 +98,6 @@ class TemplateEcsStack(Stack):
             desired_count=1,
             public_load_balancer=True,
             health_check_grace_period=Duration.seconds(60),
-            vpc_subnets=subnet_selection,
+            task_subnets=subnet_selection,
 
         )
