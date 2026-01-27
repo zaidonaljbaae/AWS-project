@@ -35,20 +35,14 @@ class TemplateEcsStack(Stack):
         # ====== Docker context directory (IMPORTANT!) ======
         # Put ONLY the ECS service folder here, NOT the project root.
         # Expected: src/app/ecs_service/Dockerfile
-        repo_root = Path(__file__).resolve().parents[3]  # .../infra/cdk/stacks -> repo root
-        service_dir = repo_root / "src" / "app" / "ecs_service"
-
-        if not service_dir.exists():
-            raise RuntimeError(
-                f"ECS service directory not found: {service_dir}\n"
-                "Create it or update SERVICE_DIR path in infra/cdk/stacks/ecs_stack.py"
-            )
+        repo_root = Path(__file__).resolve().parents[3]
+        dockerfile_path = repo_root / "src" / "app" / "ecs_service" / "Dockerfile"
 
         container = task_def.add_container(
             "AppContainer",
             image=ecs.ContainerImage.from_asset(
-                directory=str(service_dir),
-                # Extra safety even with .dockerignore:
+                directory=str(repo_root),                 # ✅ build context = root
+                file=str(dockerfile_path.relative_to(repo_root)),  # ✅ Dockerfile path relative
                 exclude=[
                     "**/cdk.out/**",
                     "**/.git/**",
