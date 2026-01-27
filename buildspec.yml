@@ -102,6 +102,14 @@ phases:
           echo "3) Deploy ECS/CDK"
           cd infra/cdk
 
+          export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          export CDK_DEFAULT_ACCOUNT="$AWS_ACCOUNT_ID"
+          export CDK_DEFAULT_REGION="${AWS_REGION:-us-east-1}"
+
+          echo "AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID"
+          echo "CDK_DEFAULT_ACCOUNT=$CDK_DEFAULT_ACCOUNT"
+          echo "CDK_DEFAULT_REGION=$CDK_DEFAULT_REGION"
+
           # ✅ IMPORTANT: clean cdk.out to prevent recursion/path explosion
           rm -rf cdk.out
           rm -rf ../cdk.out || true
