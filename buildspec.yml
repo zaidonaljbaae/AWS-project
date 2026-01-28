@@ -83,6 +83,22 @@ phases:
     commands:
       - |
           set -euo pipefail
+
+          echo "===== NETWORK CHECKS: VPC ENDPOINTS ====="
+          echo "ECR API DNS:"
+          getent hosts api.ecr.us-east-1.amazonaws.com || true
+
+          echo "ECR DKR DNS:"
+          getent hosts dkr.ecr.us-east-1.amazonaws.com || true
+
+          echo "STS caller identity:"
+          aws sts get-caller-identity || true
+
+          echo "ECR auth token test:"
+          aws ecr get-authorization-token --region "${AWS_REGION:-us-east-1}" >/dev/null && echo "ECR AUTH OK" || echo "ECR AUTH FAILED"
+
+          echo "===== END NETWORK CHECKS ====="
+
           echo "0) Install per-Lambda Python dependencies (vendor folders)"
           for svc in src/app/example_api src/app/print_lambda; do
             if [ -f "$svc/requirements.txt" ]; then
