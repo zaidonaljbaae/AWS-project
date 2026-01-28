@@ -41,7 +41,10 @@ class TemplateEcsStack(Stack):
         subnet_selection = None
         if subnet_ids:
             subnet_selection = ec2.SubnetSelection(
-                subnets=[ec2.Subnet.from_subnet_id(self, f"Subnet{i}", sid) for i, sid in enumerate(subnet_ids)]
+                subnets=[
+                    ec2.Subnet.from_subnet_id(self, f"Subnet{i}", sid)
+                    for i, sid in enumerate(subnet_ids)
+                ]
             )
 
         # ====== ECS Cluster ======
@@ -60,6 +63,30 @@ class TemplateEcsStack(Stack):
         # Expected: src/app/ecs_service/Dockerfile
         repo_root = Path(__file__).resolve().parents[3]
         dockerfile_path = repo_root / "src" / "app" / "ecs_service" / "Dockerfile"
+
+        # ====== Container Environment Variables (NO Secrets Manager) ======
+        # These values MUST exist in the environment where you run `cdk deploy`
+        # (e.g., CodeBuild environment variables).
+        env_vars = {
+            k: v
+            for k, v in {
+                # Auth (used by src/common/authorization.py)
+                "COGNITO_ISSUER": os.getenv("COGNITO_ISSUER", ""),
+                "COGNITO_AUDIENCE": os.getenv("COGNITO_AUDIENCE", ""),
+
+                # Database (if you use Postgres)
+                "DB_HOST": os.getenv("DB_HOST", ""),
+                "DB_PORT": os.getenv("DB_PORT", ""),
+                "DB_NAME": os.getenv("DB_NAME", ""),
+                "DB_USER": os.getenv("DB_USER", ""),
+                "DB_PASSWORD": os.getenv("DB_PASSWORD", ""),
+
+                # Optional app envs
+                "STAGE": os.getenv("STAGE", "dev"),
+                "AWS_REGION": os.getenv("AWS_REGION", ""),
+            }.items()
+            if v not in (None, "")
+        }
 
         container = task_def.add_container(
             "AppContainer",
@@ -82,7 +109,7 @@ class TemplateEcsStack(Stack):
                 stream_prefix="ecs",
                 log_retention=logs.RetentionDays.ONE_WEEK,
             ),
-            environment={},
+            environment=env_vars,  # ✅ pass env vars to ECS container
         )
 
         container.add_port_mappings(
@@ -99,5 +126,4 @@ class TemplateEcsStack(Stack):
             public_load_balancer=True,
             health_check_grace_period=Duration.seconds(60),
             task_subnets=subnet_selection,
-
         )
