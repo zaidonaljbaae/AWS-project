@@ -116,10 +116,34 @@ phases:
           docker info
 
           echo "3) Deploy ECS/CDK"
-          export VPC_ID=$(serverless print --stage "${STAGE:-dev}" --region "${AWS_REGION:-us-east-1}" | awk '/VPC_ID:/{print $2}')
-          export SUBNET_IDS=$(serverless print --stage "${STAGE:-dev}" --region "${AWS_REGION:-us-east-1}" | awk '/SUBNET_IDS:/{print $2}')
+          export VPC_ID=$(
+            serverless print --stage "${STAGE:-dev}" --region "${AWS_REGION:-us-east-1}" --format json \
+            | python - <<'PY'
+          import json,sys
+          cfg=json.load(sys.stdin)
+          print(cfg.get("custom",{}).get("VPC_ID",""))
+          PY
+          )
+
+          export SUBNET_IDS=$(
+            serverless print --stage "${STAGE:-dev}" --region "${AWS_REGION:-us-east-1}" --format json \
+            | python - <<'PY'
+          import json,sys
+          cfg=json.load(sys.stdin)
+          subs = cfg.get("custom",{}).get("SUBNET_IDS",[]) or []
+          print(",".join(subs))
+          PY
+          )
+
           echo "VPC_ID=$VPC_ID"
           echo "SUBNET_IDS=$SUBNET_IDS"
+
+
+
+          echo "===== VPC VALUES PASSED TO CDK ====="
+          echo "VPC_ID      = ${VPC_ID}"
+          echo "SUBNET_IDS  = ${SUBNET_IDS}"
+          echo "==================================="
 
           cd infra/cdk
 

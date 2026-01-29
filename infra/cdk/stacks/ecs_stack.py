@@ -29,25 +29,30 @@ class TemplateEcsStack(Stack):
         # Options:
         # 1) Provide an existing VPC id via env var VPC_ID (recommended in shared AWS accounts)
         # 2) If VPC_ID is not set, CDK will CREATE a dedicated VPC (recommended for demos/sandboxes)
-        vpc_id = os.getenv("VPC_ID")
+        vpc_id = os.getenv("VPC_ID") or os.getenv("VPCID")
         if not vpc_id:
-            raise ValueError("VPC_ID is required. Set VPC_ID to your existing VPC.")
-
-        vpc = ec2.Vpc.from_lookup(self, "VPC", vpc_id=vpc_id)
-
-        subnet_ids_env = os.getenv("SUBNET_IDS", "")
-        subnet_ids = [s.strip() for s in subnet_ids_env.split(",") if s.strip()]
-
-        subnet_selection = None
-        if subnet_ids:
-            subnet_selection = ec2.SubnetSelection(
-                subnets=[
-                    ec2.Subnet.from_subnet_id(self, f"Subnet{i}", sid)
-                    for i, sid in enumerate(subnet_ids)
-                ]
+            raise ValueError(
+                "VPC_ID is required (or VPCID). "
+                "Set it to an existing VPC id, e.g. vpc-xxxxxxxx."
             )
 
-        # ====== ECS Cluster ======
+        # Accept SUBNET_IDS as: "subnet-a,subnet-b" OR "subnet-a subnet-b"
+        subnet_ids_env = os.getenv("SUBNET_IDS") or os.getenv("SUBNETIDS") or ""
+        subnet_ids = [s.strip() for s in re.split(r"[,\s]+", subnet_ids_env) if s.strip()]
+
+        vpc = ec2.Vpc.from_lookup(self, "ImportedVPC", vpc_id=vpc_id)
+
+        # If explicit subnet IDs are provided, force tasks into those subnets.
+        # Otherwise, default to private subnets in the VPC.
+        if subnet_ids:
+            subnets = [
+                ec2.Subnet.from_subnet_id(self, f"Subnet{i}", subnet_id=sid)
+                for i, sid in enumerate(subnet_ids)
+            ]
+            subnet_selection = ec2.SubnetSelection(subnets=subnets)
+        else:
+            subnet_selection = ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS)
+
         cluster = ecs.Cluster(self, "Cluster", vpc=vpc)
 
         # ====== Task Definition ======
