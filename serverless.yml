@@ -1,16 +1,19 @@
 service: aws-microservices-template
 
+# ✅ ملاحظة مهمة:
+# - القيم التي تكون LIST (مثل subnetIds) ممتازة داخل provider.vpc
+# - لكن لا تضع LIST داخل provider.environment لأن environment يجب أن تكون STRING/NUMBER فقط.
+# - لهذا: نُبقي SUBNETIDS كقائمة للاستخدام في VPC، ونحذف SUBNET_IDS من environment.
+
 custom:
   stage: ${opt:stage, self:provider.stage}
   region: ${opt:region, self:provider.region}
 
-  # ✅ اجعل القيم التي تريد قراءتها من buildspec سهلة الوصول عبر custom
+  # ✅ نُعرّف هذه القيم داخل custom كي تظهر في `serverless print` بسهولة
+  #    (ويمكن أن يقرأها buildspec لتمريرها إلى CDK)
   VPC_ID: ${param:VPCID}
   SUBNET_IDS: ${param:SUBNETIDS}
-
-  # ✅ إذا احتجت subnet ids كـ string داخل env أو CDK، جهّزها كـ param نصّي (وليس join)
-  # (ضعها في params كـ "subnet-a,subnet-b")
-  SUBNET_IDS_CSV: ${param:SUBNETIDS_CSV, ""}
+  RDS_SG_ID: ${param:RDSSGID}
 
 params:
   dev:
@@ -19,11 +22,12 @@ params:
       - subnet-018313b2802ae2719
       - subnet-087fad512b11f8f42
 
-    # ✅ إذا احتجتها كنص:
-    SUBNETIDS_CSV: "subnet-018313b2802ae2719,subnet-087fad512b11f8f42"
-
+    # RDS security group (must allow inbound 5432 from the Lambda SG)
     RDSSGID: sg-065b9a017b02f9a66
+
     S3_BUCKET_NAME: dev-bucket-376129844054
+
+    # Cognito (User Pool)
     ISSUERURL: https://cognito-idp.us-east-1.amazonaws.com/us-east-1_6bPvMXkYd
     AUDIENCE: 21vpvaiih8133fmci5ui0g8f9g
 
@@ -33,10 +37,10 @@ params:
       - subnet-018313b2802ae2719
       - subnet-087fad512b11f8f42
 
-    SUBNETIDS_CSV: "subnet-018313b2802ae2719,subnet-087fad512b11f8f42"
-
     RDSSGID: sg-065b9a017b02f9a66
+
     S3_BUCKET_NAME: <PUT_PROD_BUCKET_NAME_HERE>
+
     ISSUERURL: https://cognito-idp.us-east-1.amazonaws.com/us-east-1_6bPvMXkYd
     AUDIENCE: 21vpvaiih8133fmci5ui0g8f9g
 
@@ -58,26 +62,24 @@ provider:
         audience:
           - ${param:AUDIENCE}
 
+  # ✅ VPC config: هنا نستخدم القائمة مباشرة (هذا صحيح)
   vpc:
     securityGroupIds:
       - Ref: LambdaSecurityGroup
-    # ✅ هنا مكان list subnets الصحيح
-    subnetIds: ${self:custom.SUBNET_IDS}
+    subnetIds: ${param:SUBNETIDS}
 
   environment:
     ENVIRONMENT: ${self:custom.stage}
     S3_BUCKET_NAME: ${param:S3_BUCKET_NAME}
 
+    # DB credentials تُمرَّر من CodeBuild env / Secrets
     DB_HOST: ${env:DB_HOST}
     DB_PORT: ${env:DB_PORT}
     DB_NAME: ${env:DB_NAME}
     DB_USER: ${env:DB_USER}
     DB_PASSWORD: ${env:DB_PASSWORD}
 
-    # ✅ لو تحتاجها كنص فقط (اختياري)
-    SUBNET_IDS_CSV: ${self:custom.SUBNET_IDS_CSV}
-    VPC_ID: ${self:custom.VPC_ID}
-
+    # Cognito values (strings فقط)
     COGNITO_ISSUER: ${param:ISSUERURL}
     COGNITO_AUDIENCE: ${param:AUDIENCE}
 
