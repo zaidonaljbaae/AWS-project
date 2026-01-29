@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 import re
-
 from pathlib import Path
 
 from aws_cdk import (
@@ -124,13 +123,22 @@ class TemplateEcsStack(Stack):
         )
 
         # ====== Fargate Service + ALB (simple pattern) ======
-        ecs_patterns.ApplicationLoadBalancedFargateService(
+        service = ecs_patterns.ApplicationLoadBalancedFargateService(
             self,
             "Service",
             cluster=cluster,
             task_definition=task_def,
             desired_count=1,
             public_load_balancer=True,
-            health_check_grace_period=Duration.seconds(60),
+            health_check_grace_period=Duration.seconds(180),
             task_subnets=subnet_selection,
+        )
+
+        service.target_group.configure_health_check(
+            path=os.getenv("HEALTHCHECK_PATH", "/health"),
+            healthy_http_codes="200-399",
+            interval=Duration.seconds(30),
+            timeout=Duration.seconds(5),
+            healthy_threshold_count=2,
+            unhealthy_threshold_count=5,
         )
