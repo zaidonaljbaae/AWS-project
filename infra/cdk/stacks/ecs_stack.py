@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import re
 from pathlib import Path
 
 from aws_cdk import (
@@ -30,30 +29,22 @@ class TemplateEcsStack(Stack):
         # Options:
         # 1) Provide an existing VPC id via env var VPC_ID (recommended in shared AWS accounts)
         # 2) If VPC_ID is not set, CDK will CREATE a dedicated VPC (recommended for demos/sandboxes)
-        vpc_id = os.getenv("VPC_ID") or os.getenv("VPCID")
+        vpc_id = os.getenv("VPC_ID")
         if not vpc_id:
-            raise ValueError(
-                "VPC_ID is required (or VPCID). "
-                "Set it to an existing VPC id, e.g. vpc-xxxxxxxx."
+            raise ValueError("VPC_ID is required. Set VPC_ID to your existing VPC.")
+
+        vpc = ec2.Vpc.from_lookup(self, "VPC", vpc_id=vpc_id)
+
+        subnet_ids_env = os.getenv("SUBNET_IDS", "")
+        subnet_ids = [s.strip() for s in subnet_ids_env.split(",") if s.strip()]
+
+        subnet_selection = None
+        if subnet_ids:
+            subnet_selection = ec2.SubnetSelection(
+                subnets=[ec2.Subnet.from_subnet_id(self, f"Subnet{i}", sid) for i, sid in enumerate(subnet_ids)]
             )
 
-        # Accept SUBNET_IDS as: "subnet-a,subnet-b" OR "subnet-a subnet-b"
-        subnet_ids_env = os.getenv("SUBNET_IDS") or os.getenv("SUBNETIDS") or ""
-        subnet_ids = [s.strip() for s in re.split(r"[,\s]+", subnet_ids_env) if s.strip()]
-
-        vpc = ec2.Vpc.from_lookup(self, "ImportedVPC", vpc_id=vpc_id)
-
-        # If explicit subnet IDs are provided, force tasks into those subnets.
-        # Otherwise, default to private subnets in the VPC.
-        if subnet_ids:
-            subnets = [
-                ec2.Subnet.from_subnet_id(self, f"Subnet{i}", subnet_id=sid)
-                for i, sid in enumerate(subnet_ids)
-            ]
-            subnet_selection = ec2.SubnetSelection(subnets=subnets)
-        else:
-            subnet_selection = ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS)
-
+        # ====== ECS Cluster ======
         cluster = ecs.Cluster(self, "Cluster", vpc=vpc)
 
         # ====== Task Definition ======
@@ -69,30 +60,6 @@ class TemplateEcsStack(Stack):
         # Expected: src/app/ecs_service/Dockerfile
         repo_root = Path(__file__).resolve().parents[3]
         dockerfile_path = repo_root / "src" / "app" / "ecs_service" / "Dockerfile"
-
-        # ====== Container Environment Variables (NO Secrets Manager) ======
-        # These values MUST exist in the environment where you run `cdk deploy`
-        # (e.g., CodeBuild environment variables).
-        env_vars = {
-            k: v
-            for k, v in {
-                # Auth (used by src/common/authorization.py)
-                "COGNITO_ISSUER": os.getenv("COGNITO_ISSUER", ""),
-                "COGNITO_AUDIENCE": os.getenv("COGNITO_AUDIENCE", ""),
-
-                # Database (if you use Postgres)
-                "DB_HOST": os.getenv("DB_HOST", ""),
-                "DB_PORT": os.getenv("DB_PORT", ""),
-                "DB_NAME": os.getenv("DB_NAME", ""),
-                "DB_USER": os.getenv("DB_USER", ""),
-                "DB_PASSWORD": os.getenv("DB_PASSWORD", ""),
-
-                # Optional app envs
-                "STAGE": os.getenv("STAGE", "dev"),
-                "AWS_REGION": os.getenv("AWS_REGION", ""),
-            }.items()
-            if v not in (None, "")
-        }
 
         container = task_def.add_container(
             "AppContainer",
@@ -115,7 +82,7 @@ class TemplateEcsStack(Stack):
                 stream_prefix="ecs",
                 log_retention=logs.RetentionDays.ONE_WEEK,
             ),
-            environment=env_vars,  # ✅ pass env vars to ECS container
+            environment={},
         )
 
         container.add_port_mappings(
@@ -123,22 +90,14 @@ class TemplateEcsStack(Stack):
         )
 
         # ====== Fargate Service + ALB (simple pattern) ======
-        service = ecs_patterns.ApplicationLoadBalancedFargateService(
+        ecs_patterns.ApplicationLoadBalancedFargateService(
             self,
             "Service",
             cluster=cluster,
             task_definition=task_def,
             desired_count=1,
             public_load_balancer=True,
-            health_check_grace_period=Duration.seconds(180),
+            health_check_grace_period=Duration.seconds(60),
             task_subnets=subnet_selection,
-        )
 
-        service.target_group.configure_health_check(
-            path=os.getenv("HEALTHCHECK_PATH", "/health"),
-            healthy_http_codes="200-399",
-            interval=Duration.seconds(30),
-            timeout=Duration.seconds(5),
-            healthy_threshold_count=2,
-            unhealthy_threshold_count=5,
         )
