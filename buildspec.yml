@@ -4,7 +4,7 @@ env:
   variables:
     STAGE: "dev"
     AWS_REGION: "us-east-1"
-    RUN_MIGRATIONS: "true"
+    RUN_MIGRATIONS: "false"
     RUN_CDK_BOOTSTRAP: "false"
 
 cache:
