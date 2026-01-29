@@ -21,7 +21,6 @@ phases:
       java: corretto17
     commands:
       - |
-        set -euo pipefail
         echo "Installing tools..."
         npm i -g serverless@3 aws-cdk
         python -m pip install --upgrade pip
