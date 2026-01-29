@@ -66,7 +66,7 @@ provider:
     DB_NAME: ${env:DB_NAME}
     DB_USER: ${env:DB_USER}
     DB_PASSWORD: ${env:DB_PASSWORD}
-    SUBNET_IDS: ${param:SUBNETIDS}
+    SUBNET_IDS: ${join(",", param:SUBNETIDS)}
     VPC_ID: ${param:VPCID}
 
     # Useful for app-side validation (optional)
