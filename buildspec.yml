@@ -116,6 +116,11 @@ phases:
           docker info
 
           echo "3) Deploy ECS/CDK"
+          export VPC_ID=$(serverless print --stage "${STAGE:-dev}" --region "${AWS_REGION:-us-east-1}" | awk '/VPC_ID:/{print $2}')
+          export SUBNET_IDS=$(serverless print --stage "${STAGE:-dev}" --region "${AWS_REGION:-us-east-1}" | awk '/SUBNET_IDS:/{print $2}')
+          echo "VPC_ID=$VPC_ID"
+          echo "SUBNET_IDS=$SUBNET_IDS"
+
           cd infra/cdk
 
           export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
