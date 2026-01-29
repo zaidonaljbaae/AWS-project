@@ -130,7 +130,7 @@ phases:
             | python - <<'PY'
           import json,sys
           cfg=json.load(sys.stdin)
-          subs = cfg.get("custom",{}).get("SUBNET_IDS",[]) or []
+          subs = cfg.get("params",{}).get("dev",{}).get("SUBNETIDS",[])
           print(",".join(subs))
           PY
           )
