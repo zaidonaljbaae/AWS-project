@@ -6,6 +6,8 @@ env:
     AWS_REGION: "us-east-1"
     RUN_MIGRATIONS: "true"
     RUN_CDK_BOOTSTRAP: "false"
+    # ✅ هذا يعطي logs أعمق من Serverless عند أي خطأ
+    SLS_DEBUG: "*"
 
 cache:
   paths:
@@ -54,9 +56,30 @@ phases:
           python --version
           java -version
 
+          # ✅ فحص config مبكرًا
+          echo "Running serverless doctor..."
+          serverless doctor || true
+
+          echo "Rendering serverless config (print)..."
+          serverless print --stage "${STAGE:-dev}" --region "${AWS_REGION:-us-east-1}" --format json > /tmp/sls.print.json
+          python - <<'PY'
+            import json
+            cfg=json.load(open("/tmp/sls.print.json"))
+            # ✅ تحقق أن القيم الأساسية موجودة
+            vpc_id = cfg.get("custom",{}).get("VPC_ID","")
+            subs   = cfg.get("custom",{}).get("SUBNET_IDS",[])
+            print("custom.VPC_ID =", vpc_id)
+            print("custom.SUBNET_IDS =", subs)
+            assert vpc_id.startswith("vpc-"), "custom.VPC_ID is missing/invalid"
+            assert isinstance(subs, list) and len(subs) > 0, "custom.SUBNET_IDS is missing/empty"
+            PY
+
+          # ✅ “package” يمسك كثير من أخطاء CloudFormation قبل deploy
+          echo "Packaging serverless (dry check)..."
+          serverless package --stage "${STAGE:-dev}" --region "${AWS_REGION:-us-east-1}"
+
           if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
             echo "Preparing DB connection for Flyway (ENV only)..."
-
             : "${DB_HOST:?Missing DB_HOST}"
             : "${DB_PORT:?Missing DB_PORT}"
             : "${DB_NAME:?Missing DB_NAME}"
@@ -64,7 +87,6 @@ phases:
             : "${DB_PASSWORD:?Missing DB_PASSWORD}"
 
             export DB_JDBC_URL="jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}"
-
             echo "Running Flyway migrations..."
             flyway \
               -url="${DB_JDBC_URL}" \
@@ -85,18 +107,10 @@ phases:
           set -euo pipefail
 
           echo "===== NETWORK CHECKS: VPC ENDPOINTS ====="
-          echo "ECR API DNS:"
           getent hosts api.ecr.us-east-1.amazonaws.com || true
-
-          echo "ECR DKR DNS:"
           getent hosts dkr.ecr.us-east-1.amazonaws.com || true
-
-          echo "STS caller identity:"
           aws sts get-caller-identity || true
-
-          echo "ECR auth token test:"
           aws ecr get-authorization-token --region "${AWS_REGION:-us-east-1}" >/dev/null && echo "ECR AUTH OK" || echo "ECR AUTH FAILED"
-
           echo "===== END NETWORK CHECKS ====="
 
           echo "0) Install per-Lambda Python dependencies (vendor folders)"
@@ -110,7 +124,12 @@ phases:
           done
 
           echo "1) Deploy Lambda + HTTP API"
-          serverless deploy --stage "${STAGE:-dev}" --region "${AWS_REGION:-us-east-1}"
+          STACK_NAME="aws-microservices-template-${STAGE:-dev}"
+          if ! serverless deploy --stage "${STAGE:-dev}" --region "${AWS_REGION:-us-east-1}"; then
+            echo "❌ Serverless deploy failed. Dumping CloudFormation events..."
+            aws cloudformation describe-stack-events --stack-name "$STACK_NAME" --max-items 30 || true
+            exit 1
+          fi
 
           echo "2) Docker info"
           docker info
@@ -130,7 +149,7 @@ phases:
             | python - <<'PY'
           import json,sys
           cfg=json.load(sys.stdin)
-          subs = cfg.get("params",{}).get("dev",{}).get("SUBNETIDS",[])
+          subs = cfg.get("custom",{}).get("SUBNET_IDS",[]) or []
           print(",".join(subs))
           PY
           )
@@ -138,24 +157,11 @@ phases:
           echo "VPC_ID=$VPC_ID"
           echo "SUBNET_IDS=$SUBNET_IDS"
 
-
-
-          echo "===== VPC VALUES PASSED TO CDK ====="
-          echo "VPC_ID      = ${VPC_ID}"
-          echo "SUBNET_IDS  = ${SUBNET_IDS}"
-          echo "==================================="
-
           cd infra/cdk
-
           export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           export CDK_DEFAULT_ACCOUNT="$AWS_ACCOUNT_ID"
           export CDK_DEFAULT_REGION="${AWS_REGION:-us-east-1}"
 
-          echo "AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID"
-          echo "CDK_DEFAULT_ACCOUNT=$CDK_DEFAULT_ACCOUNT"
-          echo "CDK_DEFAULT_REGION=$CDK_DEFAULT_REGION"
-
-          # ✅ IMPORTANT: clean cdk.out to prevent recursion/path explosion
           rm -rf cdk.out
           rm -rf ../cdk.out || true
 

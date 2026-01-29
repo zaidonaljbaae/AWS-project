@@ -4,6 +4,14 @@ custom:
   stage: ${opt:stage, self:provider.stage}
   region: ${opt:region, self:provider.region}
 
+  # ✅ اجعل القيم التي تريد قراءتها من buildspec سهلة الوصول عبر custom
+  VPC_ID: ${param:VPCID}
+  SUBNET_IDS: ${param:SUBNETIDS}
+
+  # ✅ إذا احتجت subnet ids كـ string داخل env أو CDK، جهّزها كـ param نصّي (وليس join)
+  # (ضعها في params كـ "subnet-a,subnet-b")
+  SUBNET_IDS_CSV: ${param:SUBNETIDS_CSV, ""}
+
 params:
   dev:
     VPCID: vpc-0c07cdd25c80eb7a3
@@ -11,12 +19,11 @@ params:
       - subnet-018313b2802ae2719
       - subnet-087fad512b11f8f42
 
-    # RDS security group (must allow inbound 5432 from the Lambda SG)
+    # ✅ إذا احتجتها كنص:
+    SUBNETIDS_CSV: "subnet-018313b2802ae2719,subnet-087fad512b11f8f42"
+
     RDSSGID: sg-065b9a017b02f9a66
-
     S3_BUCKET_NAME: dev-bucket-376129844054
-
-    # Cognito (User Pool)
     ISSUERURL: https://cognito-idp.us-east-1.amazonaws.com/us-east-1_6bPvMXkYd
     AUDIENCE: 21vpvaiih8133fmci5ui0g8f9g
 
@@ -26,11 +33,10 @@ params:
       - subnet-018313b2802ae2719
       - subnet-087fad512b11f8f42
 
+    SUBNETIDS_CSV: "subnet-018313b2802ae2719,subnet-087fad512b11f8f42"
+
     RDSSGID: sg-065b9a017b02f9a66
-
     S3_BUCKET_NAME: <PUT_PROD_BUCKET_NAME_HERE>
-
-    # Cognito (User Pool)
     ISSUERURL: https://cognito-idp.us-east-1.amazonaws.com/us-east-1_6bPvMXkYd
     AUDIENCE: 21vpvaiih8133fmci5ui0g8f9g
 
@@ -55,7 +61,8 @@ provider:
   vpc:
     securityGroupIds:
       - Ref: LambdaSecurityGroup
-    subnetIds: ${param:SUBNETIDS}
+    # ✅ هنا مكان list subnets الصحيح
+    subnetIds: ${self:custom.SUBNET_IDS}
 
   environment:
     ENVIRONMENT: ${self:custom.stage}
@@ -66,10 +73,11 @@ provider:
     DB_NAME: ${env:DB_NAME}
     DB_USER: ${env:DB_USER}
     DB_PASSWORD: ${env:DB_PASSWORD}
-    SUBNET_IDS: ${join(",", param:SUBNETIDS)}
-    VPC_ID: ${param:VPCID}
 
-    # Useful for app-side validation (optional)
+    # ✅ لو تحتاجها كنص فقط (اختياري)
+    SUBNET_IDS_CSV: ${self:custom.SUBNET_IDS_CSV}
+    VPC_ID: ${self:custom.VPC_ID}
+
     COGNITO_ISSUER: ${param:ISSUERURL}
     COGNITO_AUDIENCE: ${param:AUDIENCE}
 
