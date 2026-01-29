@@ -9,9 +9,9 @@ env:
 
 cache:
   paths:
-    - 'node_modules/**/*'
-    - '/root/.cache/pip/**/*'
-    - '/root/.npm/**/*'
+    - "node_modules/**/*"
+    - "/root/.cache/pip/**/*"
+    - "/root/.npm/**/*"
 
 phases:
   install:
@@ -21,152 +21,155 @@ phases:
       java: corretto17
     commands:
       - |
-          set -euo pipefail
-          echo "Installing tools..."
-          npm i -g serverless@3 aws-cdk
-          python -m pip install --upgrade pip
+        set -euo pipefail
+        echo "Installing tools..."
+        npm i -g serverless@3 aws-cdk
+        python -m pip install --upgrade pip
 
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm i
-          fi
+        if [ -f package-lock.json ]; then
+          npm ci
+        else
+          npm i
+        fi
 
-          if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
-            echo "Installing Flyway CLI..."
-            FLYWAY_VER="${FLYWAY_VER:-10.16.0}"
-            curl -L -o /tmp/flyway.tgz "https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/${FLYWAY_VER}/flyway-commandline-${FLYWAY_VER}-linux-x64.tar.gz"
-            tar -xzf /tmp/flyway.tgz -C /tmp
-            export PATH="$PATH:/tmp/flyway-${FLYWAY_VER}"
-            flyway -v
-          else
-            echo "Skipping Flyway install (RUN_MIGRATIONS=false)"
-          fi
+        if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
+          echo "Installing Flyway CLI..."
+          FLYWAY_VER="${FLYWAY_VER:-10.16.0}"
+          curl -L -o /tmp/flyway.tgz "https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/${FLYWAY_VER}/flyway-commandline-${FLYWAY_VER}-linux-x64.tar.gz"
+          tar -xzf /tmp/flyway.tgz -C /tmp
+          export PATH="$PATH:/tmp/flyway-${FLYWAY_VER}"
+          flyway -v
+        else
+          echo "Skipping Flyway install (RUN_MIGRATIONS=false)"
+        fi
 
   pre_build:
     commands:
       - |
-          set -euo pipefail
-          echo "Stage: ${STAGE:-dev}"
-          echo "Region: ${AWS_REGION:-us-east-1}"
-          serverless --version
-          cdk --version
-          python --version
-          java -version
+        set -euo pipefail
+        echo "Stage: ${STAGE:-dev}"
+        echo "Region: ${AWS_REGION:-us-east-1}"
+        serverless --version
+        cdk --version
+        python --version
+        java -version
 
-          # ✅ فحص مبكر لتكوين Serverless قبل deploy
-          echo "Running serverless doctor..."
-          serverless doctor || true
+        # فحص مبكر لتكوين Serverless قبل deploy
+        echo "Running serverless doctor..."
+        serverless doctor || true
 
-          echo "Rendering serverless config (print)..."
-          serverless print --stage "${STAGE:-dev}" --region "${AWS_REGION:-us-east-1}" --format json > /tmp/sls.print.json
+        echo "Rendering serverless config (print)..."
+        serverless print --stage "${STAGE:-dev}" --region "${AWS_REGION:-us-east-1}" --format json > /tmp/sls.print.json
 
-          # ✅ IMPORTANT: لا تضع مسافات قبل كود Python داخل heredoc
-          python - <<'PY'
-import json
-cfg=json.load(open('/tmp/sls.print.json'))
-vpc_id = cfg.get('custom',{}).get('VPC_ID','')
-subs   = cfg.get('custom',{}).get('SUBNET_IDS',[])
-print('custom.VPC_ID =', vpc_id)
-print('custom.SUBNET_IDS =', subs)
-assert isinstance(vpc_id, str) and vpc_id.startswith('vpc-'), 'custom.VPC_ID is missing/invalid'
-assert isinstance(subs, list) and len(subs) > 0, 'custom.SUBNET_IDS is missing/empty'
-PY
+        # IMPORTANT: لا تضع مسافات قبل كود Python داخل heredoc
+        python - <<'PY'
+        import json
+        cfg = json.load(open("/tmp/sls.print.json"))
+        vpc_id = cfg.get("custom", {}).get("VPC_ID", "")
+        subs = cfg.get("custom", {}).get("SUBNET_IDS", [])
+        print("custom.VPC_ID =", vpc_id)
+        print("custom.SUBNET_IDS =", subs)
+        assert isinstance(vpc_id, str) and vpc_id.startswith("vpc-"), "custom.VPC_ID is missing/invalid"
+        assert isinstance(subs, list) and len(subs) > 0, "custom.SUBNET_IDS is missing/empty"
+        PY
 
-          # ✅ هذا يمسك كثير من أخطاء CloudFormation/validation قبل deploy
-          echo "Packaging serverless (dry check)..."
-          serverless package --stage "${STAGE:-dev}" --region "${AWS_REGION:-us-east-1}"
+        # هذا يمسك كثير من أخطاء CloudFormation/validation قبل deploy
+        echo "Packaging serverless (dry check)..."
+        serverless package --stage "${STAGE:-dev}" --region "${AWS_REGION:-us-east-1}"
 
-          # ✅ Migration step (اختياري)
-          if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
-            echo "Preparing DB connection for Flyway (ENV only)..."
-            : "${DB_HOST:?Missing DB_HOST}"
-            : "${DB_PORT:?Missing DB_PORT}"
-            : "${DB_NAME:?Missing DB_NAME}"
-            : "${DB_USER:?Missing DB_USER}"
-            : "${DB_PASSWORD:?Missing DB_PASSWORD}"
+        # Migration step (اختياري)
+        if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
+          echo "Preparing DB connection for Flyway (ENV only)..."
+          : "${DB_HOST:?Missing DB_HOST}"
+          : "${DB_PORT:?Missing DB_PORT}"
+          : "${DB_NAME:?Missing DB_NAME}"
+          : "${DB_USER:?Missing DB_USER}"
+          : "${DB_PASSWORD:?Missing DB_PASSWORD}"
 
-            export DB_JDBC_URL="jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}"
-            echo "Running Flyway migrations..."
-            flyway \
-              -url="${DB_JDBC_URL}" \
-              -user="${DB_USER}" \
-              -password="${DB_PASSWORD}" \
-              -locations="filesystem:flyway/sql" \
-              -defaultSchema="public" \
-              -table="flyway_schema_history" \
-              -baselineOnMigrate=true \
-              migrate
-          else
-            echo "Skipping Flyway migrations (RUN_MIGRATIONS=false)"
-          fi
+          export DB_JDBC_URL="jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}"
+          echo "Running Flyway migrations..."
+          flyway \
+            -url="${DB_JDBC_URL}" \
+            -user="${DB_USER}" \
+            -password="${DB_PASSWORD}" \
+            -locations="filesystem:flyway/sql" \
+            -defaultSchema="public" \
+            -table="flyway_schema_history" \
+            -baselineOnMigrate=true \
+            migrate
+        else
+          echo "Skipping Flyway migrations (RUN_MIGRATIONS=false)"
+        fi
 
   build:
     commands:
       - |
-          set -euo pipefail
+        set -euo pipefail
 
-          echo "===== NETWORK CHECKS: VPC ENDPOINTS ====="
-          echo "ECR API DNS:"; getent hosts api.ecr.us-east-1.amazonaws.com || true
-          echo "ECR DKR DNS:"; getent hosts dkr.ecr.us-east-1.amazonaws.com || true
-          echo "STS caller identity:"; aws sts get-caller-identity || true
-          echo "ECR auth token test:"
-          aws ecr get-authorization-token --region "${AWS_REGION:-us-east-1}" >/dev/null && echo "ECR AUTH OK" || echo "ECR AUTH FAILED"
-          echo "===== END NETWORK CHECKS ====="
+        echo "===== NETWORK CHECKS: VPC ENDPOINTS ====="
+        echo "ECR API DNS:"; getent hosts api.ecr.us-east-1.amazonaws.com || true
+        echo "ECR DKR DNS:"; getent hosts dkr.ecr.us-east-1.amazonaws.com || true
+        echo "STS caller identity:"; aws sts get-caller-identity || true
+        echo "ECR auth token test:"
+        aws ecr get-authorization-token --region "${AWS_REGION:-us-east-1}" >/dev/null && echo "ECR AUTH OK" || echo "ECR AUTH FAILED"
+        echo "===== END NETWORK CHECKS ====="
 
-          echo "0) Install per-Lambda Python dependencies (vendor folders)"
-          for svc in src/app/example_api src/app/print_lambda; do
-            if [ -f "$svc/requirements.txt" ]; then
-              echo "Installing requirements for $svc ..."
-              rm -rf "$svc/vendor"
-              mkdir -p "$svc/vendor"
-              python -m pip install -r "$svc/requirements.txt" -t "$svc/vendor"
-            fi
-          done
-
-          echo "1) Deploy Lambda + HTTP API"
-          serverless deploy --stage "${STAGE:-dev}" --region "${AWS_REGION:-us-east-1}"
-
-          echo "2) Docker info"; docker info
-
-          echo "3) Deploy ECS/CDK"
-          export VPC_ID=$(python - <<'PY'
-import json
-cfg=json.load(open('/tmp/sls.print.json'))
-print(cfg.get('custom',{}).get('VPC_ID',''))
-PY
-          )
-
-          export SUBNET_IDS=$(python - <<'PY'
-import json
-cfg=json.load(open('/tmp/sls.print.json'))
-subs = cfg.get('custom',{}).get('SUBNET_IDS',[]) or []
-print(','.join(subs))
-PY
-          )
-
-          echo "===== VPC VALUES PASSED TO CDK ====="
-          echo "VPC_ID      = ${VPC_ID}"
-          echo "SUBNET_IDS  = ${SUBNET_IDS}"
-          echo "==================================="
-
-          cd infra/cdk
-          export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          export CDK_DEFAULT_ACCOUNT="$AWS_ACCOUNT_ID"
-          export CDK_DEFAULT_REGION="${AWS_REGION:-us-east-1}"
-
-          # ✅ clean cdk.out to prevent recursion/path explosion
-          rm -rf cdk.out
-          rm -rf ../cdk.out || true
-
-          python -m pip install -r requirements.txt
-          if [ "${RUN_CDK_BOOTSTRAP:-false}" = "true" ]; then
-            cdk bootstrap "aws://${AWS_ACCOUNT_ID}/${AWS_REGION:-us-east-1}"
-          else
-            echo "Skipping cdk bootstrap (RUN_CDK_BOOTSTRAP=false)"
+        echo "0) Install per-Lambda Python dependencies (vendor folders)"
+        for svc in src/app/example_api src/app/print_lambda; do
+          if [ -f "$svc/requirements.txt" ]; then
+            echo "Installing requirements for $svc ..."
+            rm -rf "$svc/vendor"
+            mkdir -p "$svc/vendor"
+            python -m pip install -r "$svc/requirements.txt" -t "$svc/vendor"
           fi
-          cdk deploy --all --require-approval never
-          cd ../..
+        done
+
+        echo "1) Deploy Lambda + HTTP API"
+        serverless deploy --stage "${STAGE:-dev}" --region "${AWS_REGION:-us-east-1}"
+
+        echo "2) Docker info"
+        docker info
+
+        echo "3) Deploy ECS/CDK"
+
+        VPC_ID="$(python - <<'PY'
+        import json
+        cfg = json.load(open("/tmp/sls.print.json"))
+        print(cfg.get("custom", {}).get("VPC_ID", ""))
+        PY
+        )"
+                SUBNET_IDS="$(python - <<'PY'
+        import json
+        cfg = json.load(open("/tmp/sls.print.json"))
+        subs = cfg.get("custom", {}).get("SUBNET_IDS", []) or []
+        print(",".join(subs))
+        PY
+        )"
+
+        echo "===== VPC VALUES PASSED TO CDK ====="
+        echo "VPC_ID      = ${VPC_ID}"
+        echo "SUBNET_IDS  = ${SUBNET_IDS}"
+        echo "==================================="
+
+        cd infra/cdk
+        AWS_ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+        export AWS_ACCOUNT_ID
+        export CDK_DEFAULT_ACCOUNT="$AWS_ACCOUNT_ID"
+        export CDK_DEFAULT_REGION="${AWS_REGION:-us-east-1}"
+
+        # clean cdk.out to prevent recursion/path explosion
+        rm -rf cdk.out
+        rm -rf ../cdk.out || true
+
+        python -m pip install -r requirements.txt
+        if [ "${RUN_CDK_BOOTSTRAP:-false}" = "true" ]; then
+          cdk bootstrap "aws://${AWS_ACCOUNT_ID}/${AWS_REGION:-us-east-1}"
+        else
+          echo "Skipping cdk bootstrap (RUN_CDK_BOOTSTRAP=false)"
+        fi
+
+        cdk deploy --all --require-approval never
+        cd ../..
 
 artifacts:
   files:
