@@ -9,7 +9,6 @@ from flask import Flask, request, jsonify
 import serverless_wsgi
 
 from ...services.nota_servico_service import NotaServicoService
-from common.authorization import authenticate
 
 # -----------------------------------------------------------------------------
 # App configuration
@@ -23,7 +22,6 @@ nota_servico_service = NotaServicoService()
 # Ensure logs show up in CloudWatch with a predictable level.
 logging.getLogger().setLevel(os.getenv("LOG_LEVEL", "INFO"))
 
-authenticate(app)
 
 # -----------------------------------------------------------------------------
 # Helper functions
@@ -57,6 +55,7 @@ def list_nota_servico():
             }
         ), 200
     except Exception as exc:
+        # Log full stack trace to CloudWatch.
         app.logger.exception(
             "Failed to list nota_servico",
             extra={
@@ -71,7 +70,11 @@ def list_nota_servico():
 
 @app.get(f"{ROUTE_PREFIX}/health")
 def health():
-    return jsonify(ok=True, service="example_api", at=now_iso())
+    return jsonify(
+        ok=True,
+        service="example_api",
+        at=now_iso(),
+    )
 
 
 # -----------------------------------------------------------------------------

@@ -12,10 +12,6 @@ import os
 from contextlib import contextmanager
 from typing import Optional
 import logging
-import json
-from functools import lru_cache
-
-import boto3
 
 import sqlalchemy as sa
 from sqlalchemy.orm import sessionmaker
@@ -32,22 +28,6 @@ def _build_db_url() -> str:
     if db_url:
         return db_url
 
-    # Preferred: load credentials from AWS Secrets Manager.
-    secret_id = os.getenv("DB_SECRET_ARN")
-    if secret_id:
-        try:
-            creds = _read_db_secret(secret_id)
-            host = creds.get("host")
-            port = str(creds.get("port")) if creds.get("port") is not None else None
-            name = creds.get("dbname") or creds.get("database")
-            user = creds.get("username") or creds.get("user")
-            password = creds.get("password")
-            if all([host, port, name, user, password]):
-                return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{name}"
-        except Exception:
-            # Fall back to env vars below (do not crash during import).
-            logging.getLogger(__name__).exception("Failed to load DB secret")
-
     host = os.getenv("DB_HOST")
     port = os.getenv("DB_PORT")
     name = os.getenv("DB_NAME")
@@ -58,21 +38,6 @@ def _build_db_url() -> str:
         return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{name}"
 
     return "sqlite+pysqlite:///:memory:"
-
-
-@lru_cache(maxsize=2)
-def _read_db_secret(secret_id: str) -> dict:
-    """Read and cache a Secrets Manager JSON secret."""
-    sm = boto3.client("secretsmanager")
-    resp = sm.get_secret_value(SecretId=secret_id)
-    s = resp.get("SecretString")
-    if not s:
-        raise ValueError("SecretString is empty")
-    obj = json.loads(s)
-    if not isinstance(obj, dict):
-        raise ValueError("Secret JSON must be an object")
-    # Normalize keys to lower-case for flexibility
-    return {str(k).lower(): v for k, v in obj.items()}
 
 
 def get_engine() -> sa.Engine:
