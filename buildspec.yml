@@ -64,8 +64,26 @@ phases:
           fi
 
           echo "Checking Docker (required for CDK docker assets)..."
+          # Some CodeBuild images require explicitly starting the Docker daemon
+          # even when privileged mode is enabled.
           if ! docker info >/dev/null 2>&1; then
-            echo "ERROR: Docker is not available. In CodeBuild, enable 'Privileged' mode for this project."
+            echo "Docker daemon not ready — attempting to start it..."
+            (sudo service docker start || sudo systemctl start docker || true) >/dev/null 2>&1
+            # Wait a bit for dockerd to come up
+            for i in 1 2 3 4 5; do
+              sleep 2
+              if docker info >/dev/null 2>&1; then
+                break
+              fi
+            done
+          fi
+
+          if ! docker info >/dev/null 2>&1; then
+            echo "ERROR: Docker is still not available."
+            echo "Diagnostics:"
+            docker --version || true
+            (ps aux | grep -E 'dockerd|containerd' | grep -v grep) || true
+            echo "Hint: ensure Privileged mode is ON and use a CodeBuild Standard image (e.g., aws/codebuild/standard:*)."
             exit 1
           fi
 

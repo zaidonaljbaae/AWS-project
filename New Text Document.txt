@@ -21,6 +21,10 @@ params:
 
     S3_BUCKET_NAME: dev-bucket-376129844054
 
+
+    ISSUERURL: https://cognito-idp.us-east-1.amazonaws.com/us-east-1_6bPvMXkYd
+    AUDIENCE: 21vpvaiih8133fmci5ui0g8f9g
+
     # Cognito (User Pool)
     ISSUERURL: https://cognito-idp.us-east-1.amazonaws.com/us-east-1_6bPvMXkYd
     AUDIENCE: 21vpvaiih8133fmci5ui0g8f9g
@@ -32,8 +36,6 @@ params:
       - subnet-087fad512b11f8f42
 
     RDSSGID: sg-065b9a017b02f9a66
-
-    S3_BUCKET_NAME: <PUT_PROD_BUCKET_NAME_HERE>
 
     # Cognito (User Pool)
     ISSUERURL: https://cognito-idp.us-east-1.amazonaws.com/us-east-1_6bPvMXkYd
