@@ -54,6 +54,15 @@ phases:
           python --version
           java -version
 
+          # Load default CI env vars from .env.ci (ONLY if variables are not already set)
+          if [ -f .env.ci ]; then
+            echo "Loading .env.ci defaults (do not use this file in production repositories)..."
+            set -a
+            # shellcheck disable=SC1091
+            source .env.ci
+            set +a
+          fi
+
           echo "Checking Docker (required for CDK docker assets)..."
           if ! docker info >/dev/null 2>&1; then
             echo "ERROR: Docker is not available. In CodeBuild, enable 'Privileged' mode for this project."
