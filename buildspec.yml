@@ -33,16 +33,24 @@ phases:
           fi
 
           if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
-            echo "Installing Flyway CLI (system-wide)..."
+            echo "Installing Flyway CLI (local tool dir)..."
             FLYWAY_VER="${FLYWAY_VER:-10.16.0}"
 
-            curl -L -o /tmp/flyway.tgz "https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/${FLYWAY_VER}/flyway-commandline-${FLYWAY_VER}-linux-x64.tar.gz"
-            # Install under /usr/local so Flyway is available across ALL phases
-            sudo tar -xzf /tmp/flyway.tgz -C /usr/local
-            sudo ln -sf "/usr/local/flyway-${FLYWAY_VER}/flyway" /usr/local/bin/flyway
-            sudo chmod +x "/usr/local/flyway-${FLYWAY_VER}/flyway" || true
+            # Use a project-local tools folder (no sudo), and verify the download is a valid tar.gz.
+            mkdir -p .tools
+            curl -fSL -o /tmp/flyway.tgz "https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/${FLYWAY_VER}/flyway-commandline-${FLYWAY_VER}-linux-x64.tar.gz"
 
-            echo "Flyway binary:" && ls -la "/usr/local/flyway-${FLYWAY_VER}/flyway" || true
+            echo "Downloaded /tmp/flyway.tgz:" && ls -lh /tmp/flyway.tgz
+            echo "Validating archive..." && tar -tzf /tmp/flyway.tgz >/dev/null
+
+            tar -xzf /tmp/flyway.tgz -C .tools
+            # Discover extracted directory name (usually: flyway-${FLYWAY_VER})
+            FLYWAY_DIR=$(tar -tzf /tmp/flyway.tgz | head -1 | cut -d/ -f1)
+            export FLYWAY_HOME="$CODEBUILD_SRC_DIR/.tools/${FLYWAY_DIR}"
+            chmod +x "${FLYWAY_HOME}/flyway" || true
+            export PATH="$PATH:${FLYWAY_HOME}"
+
+            echo "Flyway binary:" && ls -la "${FLYWAY_HOME}/flyway" || true
             echo "Java:" && which java || true
             java -version
             flyway -v
