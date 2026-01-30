@@ -14,164 +14,61 @@ cache:
     - '/root/.cache/pip/**/*'
     - '/root/.npm/**/*'
 
+
 phases:
   install:
     runtime-versions:
-      nodejs: 16
+      nodejs: 20
       python: 3.9
       java: corretto11
     commands:
+      - set -euo pipefail
+      - echo "Installing tools..."
+      - node -v && npm -v
+      - npm i -g serverless aws-cdk
+      - python -m pip install --upgrade pip
+
       - |
-          set -euo pipefail
-          echo "Installing tools..."
-          npm i -g serverless@3 aws-cdk
-          python -m pip install --upgrade pip
+        if [ -f package-lock.json ]; then
+          npm ci
+        else
+          npm i
+        fi
 
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm i
-          fi
+      - |
+        if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
+          echo "Installing Flyway CLI (local tool dir)..."
+          FLYWAY_VER="${FLYWAY_VER:-10.16.0}"
+          mkdir -p .tools
+          curl -fSL -o /tmp/flyway.tgz "https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/${FLYWAY_VER}/flyway-commandline-${FLYWAY_VER}-linux-x64.tar.gz"
 
-          if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
-            echo "Installing Flyway CLI (local tool dir)..."
-            FLYWAY_VER="${FLYWAY_VER:-10.16.0}"
+          echo "Downloaded /tmp/flyway.tgz:" && ls -lh /tmp/flyway.tgz
+          echo "Validating archive..." && tar -tzf /tmp/flyway.tgz >/dev/null
 
-            # Use a project-local tools folder (no sudo), and verify the download is a valid tar.gz.
-            mkdir -p .tools
-            curl -fSL -o /tmp/flyway.tgz "https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/${FLYWAY_VER}/flyway-commandline-${FLYWAY_VER}-linux-x64.tar.gz"
+          # avoid SIGPIPE with pipefail:
+          tar -tzf /tmp/flyway.tgz > /tmp/flyway.list
+          tar -xzf /tmp/flyway.tgz -C .tools
+          FLYWAY_DIR=$(head -1 /tmp/flyway.list | cut -d/ -f1)
 
-            echo "Downloaded /tmp/flyway.tgz:" && ls -lh /tmp/flyway.tgz
-            echo "Validating archive..." && tar -tzf /tmp/flyway.tgz >/dev/null
+          export FLYWAY_HOME="$CODEBUILD_SRC_DIR/.tools/${FLYWAY_DIR}"
+          chmod +x "${FLYWAY_HOME}/flyway" || true
+          export PATH="$PATH:${FLYWAY_HOME}"
 
-            tar -xzf /tmp/flyway.tgz -C .tools
-            # Discover extracted directory name (usually: flyway-${FLYWAY_VER})
-            FLYWAY_DIR=$(tar -tzf /tmp/flyway.tgz | head -1 | cut -d/ -f1)
-            export FLYWAY_HOME="$CODEBUILD_SRC_DIR/.tools/${FLYWAY_DIR}"
-            chmod +x "${FLYWAY_HOME}/flyway" || true
-            export PATH="$PATH:${FLYWAY_HOME}"
-
-            echo "Flyway binary:" && ls -la "${FLYWAY_HOME}/flyway" || true
-            echo "Java:" && which java || true
-            java -version
-            flyway -v
-          else
-            echo "Skipping Flyway install (RUN_MIGRATIONS=false)"
-          fi
+          echo "Java:" && java -version
+          echo "Flyway:" && flyway -v
+        else
+          echo "Skipping Flyway install (RUN_MIGRATIONS=false)"
+        fi
 
   pre_build:
     commands:
-      - |
-          set -euo pipefail
-          echo "Stage: ${STAGE:-dev}"
-          echo "Region: ${AWS_REGION:-us-east-1}"
-          serverless --version
-          cdk --version
-          python --version
-          java -version
-
-          # Load default CI env vars from .env.ci (ONLY if variables are not already set)
-          if [ -f .env.ci ]; then
-            echo "Loading .env.ci defaults (do not use this file in production repositories)..."
-            set -a
-            # shellcheck disable=SC1091
-            source .env.ci
-            set +a
-          fi
-
-          echo "Checking Docker (required for CDK docker assets)..."
-          # Some CodeBuild images require explicitly starting the Docker daemon
-          # even when privileged mode is enabled.
-          if ! docker info >/dev/null 2>&1; then
-            echo "Docker daemon not ready — attempting to start it..."
-            (sudo service docker start || sudo systemctl start docker || true) >/dev/null 2>&1
-            # Wait a bit for dockerd to come up
-            for i in 1 2 3 4 5; do
-              sleep 2
-              if docker info >/dev/null 2>&1; then
-                break
-              fi
-            done
-          fi
-
-          if ! docker info >/dev/null 2>&1; then
-            echo "ERROR: Docker is still not available."
-            echo "Diagnostics:"
-            docker --version || true
-            (ps aux | grep -E 'dockerd|containerd' | grep -v grep) || true
-            echo "Hint: ensure Privileged mode is ON and use a CodeBuild Standard image (e.g., aws/codebuild/standard:*)."
-            exit 1
-          fi
-
-          if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
-            echo "Preparing DB connection for Flyway (ENV only)..."
-
-            : "${DB_HOST:?Missing DB_HOST}"
-            : "${DB_PORT:?Missing DB_PORT}"
-            : "${DB_NAME:?Missing DB_NAME}"
-            : "${DB_USER:?Missing DB_USER}"
-            : "${DB_PASSWORD:?Missing DB_PASSWORD}"
-
-            export DB_JDBC_URL="jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}"
-
-            echo "Running Flyway migrations..."
-            flyway \
-              -url="${DB_JDBC_URL}" \
-              -user="${DB_USER}" \
-              -password="${DB_PASSWORD}" \
-              -locations="filesystem:flyway/sql" \
-              -defaultSchema="public" \
-              -table="flyway_schema_history" \
-              -baselineOnMigrate=true \
-              migrate
-          else
-            echo "Skipping Flyway migrations (RUN_MIGRATIONS=false)"
-          fi
+      - set -euo pipefail
+      - echo "Stage: ${STAGE:-dev}"
+      - echo "Region: ${AWS_REGION:-us-east-1}"
+      - serverless --version
+      - cdk --version
 
   build:
     commands:
-      - |
-          set -euo pipefail
-          echo "0) Install per-Lambda Python dependencies (vendor folders)"
-          for svc in src/app/example_api src/app/print_lambda; do
-            if [ -f "$svc/requirements.txt" ]; then
-              echo "Installing requirements for $svc ..."
-              rm -rf "$svc/vendor"
-              mkdir -p "$svc/vendor"
-              python -m pip install -r "$svc/requirements.txt" -t "$svc/vendor"
-            fi
-          done
-
-          echo "1) Deploy Lambda + HTTP API"
-          serverless deploy --stage "${STAGE:-dev}" --region "${AWS_REGION:-us-east-1}"
-
-          echo "2) Docker info"
-          docker info
-
-          echo "3) Deploy ECS/CDK"
-          cd infra/cdk
-
-          export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          export CDK_DEFAULT_ACCOUNT="$AWS_ACCOUNT_ID"
-          export CDK_DEFAULT_REGION="${AWS_REGION:-us-east-1}"
-
-          echo "AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID"
-          echo "CDK_DEFAULT_ACCOUNT=$CDK_DEFAULT_ACCOUNT"
-          echo "CDK_DEFAULT_REGION=$CDK_DEFAULT_REGION"
-
-          # ✅ IMPORTANT: clean cdk.out to prevent recursion/path explosion
-          rm -rf cdk.out
-          rm -rf ../cdk.out || true
-
-          python -m pip install -r requirements.txt
-          if [ "${RUN_CDK_BOOTSTRAP:-false}" = "true" ]; then
-            cdk bootstrap "aws://${AWS_ACCOUNT_ID}/${AWS_REGION:-us-east-1}"
-          else
-            echo "Skipping cdk bootstrap (RUN_CDK_BOOTSTRAP=false)"
-          fi
-          cdk deploy --all --require-approval never
-          cd ../..
-
-artifacts:
-  files:
-    - "**/*"
+      - set -euo pipefail
+      - echo "Run your deploy commands here (serverless deploy / cdk deploy ...)"
