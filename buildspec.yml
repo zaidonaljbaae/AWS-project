@@ -1,6 +1,7 @@
 version: 0.2
 
 env:
+  shell: bash
   variables:
     STAGE: "dev"
     AWS_REGION: "us-east-1"
