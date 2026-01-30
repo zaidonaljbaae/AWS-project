@@ -25,35 +25,37 @@ phases:
       - echo "== Installing tools =="
       - node -v && npm -v
       - python --version
+
       - npm i -g serverless@3 aws-cdk
+
       - python -m pip install --upgrade pip
+
       - |
-          if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
-            echo "== Installing Flyway to /tmp (NOT in project) =="
-            FLYWAY_VER="${FLYWAY_VER:-10.16.0}"
-            mkdir -p /tmp/flyway
-            curl -fSL -o /tmp/flyway.tgz \
-              "https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/${FLYWAY_VER}/flyway-commandline-${FLYWAY_VER}-linux-x64.tar.gz"
-            tar -xzf /tmp/flyway.tgz -C /tmp/flyway
-            FLYWAY_DIR=$(tar -tzf /tmp/flyway.tgz | head -1 | cut -d/ -f1)
-            export FLYWAY_HOME="/tmp/flyway/${FLYWAY_DIR}"
-            export PATH="$PATH:${FLYWAY_HOME}"
-            flyway -v
-          else
-            echo "Skipping Flyway (RUN_MIGRATIONS=false)"
-          fi
+        if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
+          echo "== Installing Flyway to /tmp (NOT in project) =="
+          FLYWAY_VER="${FLYWAY_VER:-10.16.0}"
+          mkdir -p /tmp/flyway
+          curl -fSL -o /tmp/flyway.tgz \
+            "https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/${FLYWAY_VER}/flyway-commandline-${FLYWAY_VER}-linux-x64.tar.gz"
+          tar -xzf /tmp/flyway.tgz -C /tmp/flyway
+          FLYWAY_DIR=$(tar -tzf /tmp/flyway.tgz | head -1 | cut -d/ -f1)
+          export FLYWAY_HOME="/tmp/flyway/${FLYWAY_DIR}"
+          export PATH="$PATH:${FLYWAY_HOME}"
+          flyway -v
+        else
+          echo "Skipping Flyway (RUN_MIGRATIONS=false)"
+        fi
+
       - |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm i
-          fi
+        if [ -f package-lock.json ]; then
+          npm ci
+        else
+          npm i
+        fi
 
   pre_build:
     commands:
       - set -euo pipefail
-      - echo "Stage: ${STAGE}"
-      - echo "Region: ${AWS_REGION}"
       - serverless --version
       - cdk --version
       - rm -rf .tools || true
@@ -62,34 +64,42 @@ phases:
   build:
     commands:
       - set -euo pipefail
+
       - echo "== Install per-Lambda Python deps (vendor) =="
       - |
-          for svc in src/app/example_api src/app/print_lambda; do
-            if [ -f "$svc/requirements.txt" ]; then
-              echo "Installing requirements for $svc ..."
-              rm -rf "$svc/vendor"
-              mkdir -p "$svc/vendor"
-              python -m pip install -r "$svc/requirements.txt" -t "$svc/vendor"
-            fi
-          done
+        for svc in src/app/example_api src/app/print_lambda; do
+          if [ -f "$svc/requirements.txt" ]; then
+            echo "Installing requirements for $svc ..."
+            rm -rf "$svc/vendor"
+            mkdir -p "$svc/vendor"
+            python -m pip install -r "$svc/requirements.txt" -t "$svc/vendor"
+          fi
+        done
+
       - echo "== Checking big directories (top 30) =="
       - du -ah . | sort -hr | head -n 30
+
       - echo "== 1) Serverless deploy =="
       - serverless deploy --stage "${STAGE}" --region "${AWS_REGION}"
+
       - echo "== 2) CDK deploy (ECS) =="
       - cd infra/cdk
+
       - AWS_ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
       - export CDK_DEFAULT_ACCOUNT="${AWS_ACCOUNT_ID}"
       - export CDK_DEFAULT_REGION="${AWS_REGION}"
+
       - echo "Account: ${AWS_ACCOUNT_ID}"
       - echo "Region:  ${AWS_REGION}"
       - python -m pip install -r requirements.txt
+
       - |
-          if [ "${RUN_CDK_BOOTSTRAP:-false}" = "true" ]; then
-            cdk bootstrap "aws://${AWS_ACCOUNT_ID}/${AWS_REGION}"
-          else
-            echo "Skipping cdk bootstrap (RUN_CDK_BOOTSTRAP=false)"
-          fi
+        if [ "${RUN_CDK_BOOTSTRAP:-false}" = "true" ]; then
+          cdk bootstrap "aws://${AWS_ACCOUNT_ID}/${AWS_REGION}"
+        else
+          echo "Skipping cdk bootstrap (RUN_CDK_BOOTSTRAP=false)"
+        fi
+
       - cdk deploy --all --require-approval never
       - cd ../..
 
