@@ -90,6 +90,12 @@ phases:
 
       - python -m pip install -r requirements.txt
 
+      - echo "== Who am I? =="
+      - aws sts get-caller-identity || true
+
+      - echo "== AWS env vars =="
+      - env | sort | egrep 'AWS_|CODEBUILD|REGION' || true
+
       - |
         if [ "${RUN_CDK_BOOTSTRAP:-false}" = "true" ]; then
           cdk bootstrap "aws://${AWS_ACCOUNT_ID}/${AWS_REGION}"
