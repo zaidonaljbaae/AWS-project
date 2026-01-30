@@ -1,16 +1,14 @@
 FROM python:3.12-slim
-
 WORKDIR /app
 
-# Install dependencies
-COPY requirements.txt .
+COPY src/app/ecs_service/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
-COPY app.py .
+COPY src/app/ecs_service/app.py ./app.py
+COPY src/common ./common
+COPY src/models ./models
 
-# ECS / ALB expects this port
+ENV PYTHONPATH=/app
 EXPOSE 8080
 
-# Run the API
 CMD ["gunicorn", "-w", "2", "-b", "0.0.0.0:8080", "app:app"]

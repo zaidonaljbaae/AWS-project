@@ -1,11 +1,24 @@
 version: 0.2
 
+env:
+  variables:
+    STAGE: "dev"
+    AWS_REGION: "us-east-1"
+    RUN_MIGRATIONS: "true"
+    RUN_CDK_BOOTSTRAP: "false"
+
+cache:
+  paths:
+    - 'node_modules/**/*'
+    - '/root/.cache/pip/**/*'
+    - '/root/.npm/**/*'
+
 phases:
   install:
     runtime-versions:
-      nodejs: 20
-      python: 3.11
-      java: corretto17
+      nodejs: 16
+      python: 3.9
+      java: corretto11
     commands:
       - |
           set -euo pipefail
@@ -19,12 +32,20 @@ phases:
             npm i
           fi
 
-          echo "Installing Flyway CLI..."
-          FLYWAY_VER="${FLYWAY_VER:-10.16.0}"
-          curl -L -o /tmp/flyway.tgz "https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/${FLYWAY_VER}/flyway-commandline-${FLYWAY_VER}-linux-x64.tar.gz"
-          tar -xzf /tmp/flyway.tgz -C /tmp
-          export PATH="$PATH:/tmp/flyway-${FLYWAY_VER}"
-          flyway -v
+          if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
+            echo "Installing Flyway CLI..."
+            FLYWAY_VER="${FLYWAY_VER:-10.16.0}"
+            curl -L -o /tmp/flyway.tgz "https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/${FLYWAY_VER}/flyway-commandline-${FLYWAY_VER}-linux-x64.tar.gz"
+                        tar -xzf /tmp/flyway.tgz -C /tmp
+            export FLYWAY_HOME="/tmp/flyway-${FLYWAY_VER}"
+            # Run Flyway using an absolute path (avoids PATH issues on some CodeBuild images)
+            chmod +x "${FLYWAY_HOME}/flyway" || true
+            "${FLYWAY_HOME}/flyway" -v
+            # Also add to PATH for later phases
+            export PATH="$PATH:${FLYWAY_HOME}"
+          else
+            echo "Skipping Flyway install (RUN_MIGRATIONS=false)"
+          fi
 
   pre_build:
     commands:
@@ -37,38 +58,70 @@ phases:
           python --version
           java -version
 
-          echo "Preparing DB connection for Flyway..."
-          if [ -z "${DB_HOST:-}" ] || [ -z "${DB_PORT:-}" ] || [ -z "${DB_NAME:-}" ] || [ -z "${DB_USER:-}" ] || [ -z "${DB_PASSWORD:-}" ]; then
-            echo "DB_* env vars not fully set. Reading from serverless.yml params..."
-            eval "$(python scripts/read_db_from_serverless.py)"
-          else
-            export DB_JDBC_URL="jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}"
+          # Load default CI env vars from .env.ci (ONLY if variables are not already set)
+          if [ -f .env.ci ]; then
+            echo "Loading .env.ci defaults (do not use this file in production repositories)..."
+            set -a
+            # shellcheck disable=SC1091
+            source .env.ci
+            set +a
           fi
 
-          : "${DB_HOST:?Missing DB_HOST}"
-          : "${DB_PORT:?Missing DB_PORT}"
-          : "${DB_NAME:?Missing DB_NAME}"
-          : "${DB_USER:?Missing DB_USER}"
-          : "${DB_PASSWORD:?Missing DB_PASSWORD}"
-          : "${DB_JDBC_URL:?Missing DB_JDBC_URL}"
+          echo "Checking Docker (required for CDK docker assets)..."
+          # Some CodeBuild images require explicitly starting the Docker daemon
+          # even when privileged mode is enabled.
+          if ! docker info >/dev/null 2>&1; then
+            echo "Docker daemon not ready — attempting to start it..."
+            (sudo service docker start || sudo systemctl start docker || true) >/dev/null 2>&1
+            # Wait a bit for dockerd to come up
+            for i in 1 2 3 4 5; do
+              sleep 2
+              if docker info >/dev/null 2>&1; then
+                break
+              fi
+            done
+          fi
 
-          echo "Running Flyway migrations..."
-          flyway \
-            -url="${DB_JDBC_URL}" \
-            -user="${DB_USER}" \
-            -password="${DB_PASSWORD}" \
-            -locations="filesystem:flyway/sql" \
-            -defaultSchema="public" \
-            -table="flyway_schema_history" \
-            -baselineOnMigrate=true \
-            migrate
+          if ! docker info >/dev/null 2>&1; then
+            echo "ERROR: Docker is still not available."
+            echo "Diagnostics:"
+            docker --version || true
+            (ps aux | grep -E 'dockerd|containerd' | grep -v grep) || true
+            echo "Hint: ensure Privileged mode is ON and use a CodeBuild Standard image (e.g., aws/codebuild/standard:*)."
+            exit 1
+          fi
+
+          if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
+            echo "Preparing DB connection for Flyway (ENV only)..."
+
+            : "${DB_HOST:?Missing DB_HOST}"
+            : "${DB_PORT:?Missing DB_PORT}"
+            : "${DB_NAME:?Missing DB_NAME}"
+            : "${DB_USER:?Missing DB_USER}"
+            : "${DB_PASSWORD:?Missing DB_PASSWORD}"
+
+            export DB_JDBC_URL="jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}"
+
+            echo "Running Flyway migrations..."
+            flyway \
+              -url="${DB_JDBC_URL}" \
+              -user="${DB_USER}" \
+              -password="${DB_PASSWORD}" \
+              -locations="filesystem:flyway/sql" \
+              -defaultSchema="public" \
+              -table="flyway_schema_history" \
+              -baselineOnMigrate=true \
+              migrate
+          else
+            echo "Skipping Flyway migrations (RUN_MIGRATIONS=false)"
+          fi
 
   build:
     commands:
       - |
           set -euo pipefail
           echo "0) Install per-Lambda Python dependencies (vendor folders)"
-          for svc in src/app/*; do
+          for svc in src/app/example_api src/app/print_lambda; do
             if [ -f "$svc/requirements.txt" ]; then
               echo "Installing requirements for $svc ..."
               rm -rf "$svc/vendor"
@@ -80,16 +133,30 @@ phases:
           echo "1) Deploy Lambda + HTTP API"
           serverless deploy --stage "${STAGE:-dev}" --region "${AWS_REGION:-us-east-1}"
 
-          echo "2) Start Docker daemon (required for CDK Docker assets)"
-          nohup dockerd --host=unix:///var/run/docker.sock >/tmp/dockerd.log 2>&1 &
-          sleep 4
-          tail -n 120 /tmp/dockerd.log || true
+          echo "2) Docker info"
           docker info
 
           echo "3) Deploy ECS/CDK"
           cd infra/cdk
+
+          export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          export CDK_DEFAULT_ACCOUNT="$AWS_ACCOUNT_ID"
+          export CDK_DEFAULT_REGION="${AWS_REGION:-us-east-1}"
+
+          echo "AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID"
+          echo "CDK_DEFAULT_ACCOUNT=$CDK_DEFAULT_ACCOUNT"
+          echo "CDK_DEFAULT_REGION=$CDK_DEFAULT_REGION"
+
+          # ✅ IMPORTANT: clean cdk.out to prevent recursion/path explosion
+          rm -rf cdk.out
+          rm -rf ../cdk.out || true
+
           python -m pip install -r requirements.txt
-          cdk bootstrap "aws://${AWS_ACCOUNT_ID}/${AWS_REGION:-us-east-1}"
+          if [ "${RUN_CDK_BOOTSTRAP:-false}" = "true" ]; then
+            cdk bootstrap "aws://${AWS_ACCOUNT_ID}/${AWS_REGION:-us-east-1}"
+          else
+            echo "Skipping cdk bootstrap (RUN_CDK_BOOTSTRAP=false)"
+          fi
           cdk deploy --all --require-approval never
           cd ../..
 
