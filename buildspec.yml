@@ -89,8 +89,6 @@ phases:
       - export CDK_DEFAULT_ACCOUNT="${AWS_ACCOUNT_ID}"
       - export CDK_DEFAULT_REGION="${AWS_REGION}"
 
-      - echo "Account: ${AWS_ACCOUNT_ID}"
-      - echo "Region:  ${AWS_REGION}"
       - python -m pip install -r requirements.txt
 
       - |
