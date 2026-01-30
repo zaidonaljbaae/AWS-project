@@ -33,16 +33,19 @@ phases:
           fi
 
           if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
-            echo "Installing Flyway CLI..."
+            echo "Installing Flyway CLI (system-wide)..."
             FLYWAY_VER="${FLYWAY_VER:-10.16.0}"
+
             curl -L -o /tmp/flyway.tgz "https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/${FLYWAY_VER}/flyway-commandline-${FLYWAY_VER}-linux-x64.tar.gz"
-                        tar -xzf /tmp/flyway.tgz -C /tmp
-            export FLYWAY_HOME="/tmp/flyway-${FLYWAY_VER}"
-            # Run Flyway using an absolute path (avoids PATH issues on some CodeBuild images)
-            chmod +x "${FLYWAY_HOME}/flyway" || true
-            "${FLYWAY_HOME}/flyway" -v
-            # Also add to PATH for later phases
-            export PATH="$PATH:${FLYWAY_HOME}"
+            # Install under /usr/local so Flyway is available across ALL phases
+            sudo tar -xzf /tmp/flyway.tgz -C /usr/local
+            sudo ln -sf "/usr/local/flyway-${FLYWAY_VER}/flyway" /usr/local/bin/flyway
+            sudo chmod +x "/usr/local/flyway-${FLYWAY_VER}/flyway" || true
+
+            echo "Flyway binary:" && ls -la "/usr/local/flyway-${FLYWAY_VER}/flyway" || true
+            echo "Java:" && which java || true
+            java -version
+            flyway -v
           else
             echo "Skipping Flyway install (RUN_MIGRATIONS=false)"
           fi
