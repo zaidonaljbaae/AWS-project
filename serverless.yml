@@ -79,8 +79,13 @@ provider:
 package:
   individually: true
   patterns:
-    - '!__pycache__/**'
     - '!node_modules/**'
+    - '!infra/**'
+    - '!.tools/**'
+    - '!cdk.out/**'
+    - '!**/*.tgz'
+    - '!**/*.tar.gz'
+    - '!**/__pycache__/**'
 
 functions:
   example_api: ${file(src/app/example_api/example_api.yml)}

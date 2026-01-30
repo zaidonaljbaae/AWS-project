@@ -7,7 +7,6 @@ env:
     AWS_REGION: "us-east-1"
     RUN_MIGRATIONS: "true"
     RUN_CDK_BOOTSTRAP: "false"
-    FLYWAY_VER: "10.16.0"
 
 cache:
   paths:
@@ -22,17 +21,31 @@ phases:
       python: 3.9
       java: corretto11
     commands:
-      - "set -euo pipefail"
-      - 'echo "== Versions =="'
-      - "node -v && npm -v"
-      - "python --version"
-      - "java -version"
+      - set -euo pipefail
+      - echo "== Installing tools =="
+      - node -v && npm -v
+      - python --version
 
-      - 'echo "== Install global tools =="'
-      - "npm i -g serverless@3 aws-cdk"
-      - "python -m pip install --upgrade pip"
+      - npm i -g serverless@3 aws-cdk
 
-      - 'echo "== Install Node deps (repo) =="'
+      - python -m pip install --upgrade pip
+
+      - |
+        if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
+          echo "== Installing Flyway to /tmp (NOT in project) =="
+          FLYWAY_VER="${FLYWAY_VER:-10.16.0}"
+          mkdir -p /tmp/flyway
+          curl -fSL -o /tmp/flyway.tgz \
+            "https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/${FLYWAY_VER}/flyway-commandline-${FLYWAY_VER}-linux-x64.tar.gz"
+          tar -xzf /tmp/flyway.tgz -C /tmp/flyway
+          FLYWAY_DIR=$(tar -tzf /tmp/flyway.tgz | head -1 | cut -d/ -f1)
+          export FLYWAY_HOME="/tmp/flyway/${FLYWAY_DIR}"
+          export PATH="$PATH:${FLYWAY_HOME}"
+          flyway -v
+        else
+          echo "Skipping Flyway (RUN_MIGRATIONS=false)"
+        fi
+
       - |
         if [ -f package-lock.json ]; then
           npm ci
@@ -40,37 +53,22 @@ phases:
           npm i
         fi
 
-      - 'echo "== Install Flyway (to /tmp, NOT repo) =="'
-      - |
-        if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
-          mkdir -p /tmp/tools
-          curl -fSL -o /tmp/flyway.tgz "https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/${FLYWAY_VER}/flyway-commandline-${FLYWAY_VER}-linux-x64.tar.gz"
-          tar -tzf /tmp/flyway.tgz > /tmp/flyway.list
-          tar -xzf /tmp/flyway.tgz -C /tmp/tools
-          FLYWAY_DIR="$(head -1 /tmp/flyway.list | cut -d/ -f1)"
-          export FLYWAY_HOME="/tmp/tools/${FLYWAY_DIR}"
-          chmod +x "${FLYWAY_HOME}/flyway" || true
-          export PATH="$PATH:${FLYWAY_HOME}"
-          flyway -v
-        else
-          echo "Skipping Flyway install (RUN_MIGRATIONS=false)"
-        fi
-
   pre_build:
     commands:
-      - "set -euo pipefail"
-      - 'echo "Stage: ${STAGE}"'
-      - 'echo "Region: ${AWS_REGION}"'
-      - "serverless --version"
-      - "cdk --version"
-      - 'echo "== Sanity: show large dirs (top 20) =="'
-      - 'du -sh ./* 2>/dev/null | sort -hr | head -20 || true'
+      - set -euo pipefail
+      - echo "Stage: ${STAGE}"
+      - echo "Region: ${AWS_REGION}"
+      - serverless --version
+      - cdk --version
+
+      - rm -rf .tools || true
+      - rm -rf cdk.out infra/cdk/cdk.out || true
 
   build:
     commands:
-      - "set -euo pipefail"
+      - set -euo pipefail
 
-      - 'echo "== Install per-Lambda Python deps (vendor) =="'
+      - echo "== Install per-Lambda Python deps (vendor) =="
       - |
         for svc in src/app/example_api src/app/print_lambda; do
           if [ -f "$svc/requirements.txt" ]; then
@@ -81,36 +79,34 @@ phases:
           fi
         done
 
-      # IMPORTANT: ensure nothing huge exists inside repo before serverless packaging
-      - 'echo "== Pre-deploy cleanup to avoid Lambda zip bloat =="'
-      - "rm -rf .tools || true"
-      - "rm -rf cdk.out infra/cdk/cdk.out || true"
-      - "find . -maxdepth 2 -type f -name '*.tgz' -o -name '*.tar.gz' | head -50 || true"
+      - echo "== Checking big directories (top 30) =="
+      - du -ah . | sort -hr | head -n 30
 
-      - 'echo "== 1) Serverless deploy =="'
-      - "serverless deploy --stage ${STAGE} --region ${AWS_REGION}"
+      - echo "== 1) Serverless deploy =="
+      - serverless deploy --stage "${STAGE}" --region "${AWS_REGION}"
 
-      - 'echo "== 2) CDK deploy =="'
+      - echo "== 2) CDK deploy (ECS) =="
+      - cd infra/cdk
+
+      - AWS_ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+      - export CDK_DEFAULT_ACCOUNT="${AWS_ACCOUNT_ID}"
+      - export CDK_DEFAULT_REGION="${AWS_REGION}"
+
+      - echo "Account: ${AWS_ACCOUNT_ID}"
+      - echo "Region:  ${AWS_REGION}"
+      - python -m pip install -r requirements.txt
+
       - |
-        cd infra/cdk
-        AWS_ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
-        export CDK_DEFAULT_ACCOUNT="${AWS_ACCOUNT_ID}"
-        export CDK_DEFAULT_REGION="${AWS_REGION}"
-        echo "Account: ${AWS_ACCOUNT_ID}"
-        echo "Region:  ${AWS_REGION}"
-
-        python -m pip install -r requirements.txt
-
         if [ "${RUN_CDK_BOOTSTRAP:-false}" = "true" ]; then
           cdk bootstrap "aws://${AWS_ACCOUNT_ID}/${AWS_REGION}"
         else
           echo "Skipping cdk bootstrap (RUN_CDK_BOOTSTRAP=false)"
         fi
 
-        cdk deploy --all --require-approval never
-        cd ../..
+      - cdk deploy --all --require-approval never
+      - cd ../..
 
 artifacts:
   files:
     - "**/*"
-  discard-paths: yes
+  discard-paths: no
