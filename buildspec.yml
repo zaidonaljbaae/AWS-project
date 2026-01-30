@@ -85,9 +85,6 @@ phases:
       - echo "== 2) CDK deploy (ECS) =="
       - cd infra/cdk
 
-      - AWS_ACCOUNT_ID="$(echo "$CODEBUILD_BUILD_ARN" | cut -d: -f5)"
-      - echo "Account: ${AWS_ACCOUNT_ID}"
-
       - export CDK_DEFAULT_ACCOUNT="${AWS_ACCOUNT_ID}"
       - export CDK_DEFAULT_REGION="${AWS_REGION}"
 
