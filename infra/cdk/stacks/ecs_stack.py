@@ -21,26 +21,15 @@ class TemplateEcsStack(Stack):
         super().__init__(scope, construct_id, **kwargs)
 
         # ====== Networking ======
-        # IMPORTANT: An ALB can only attach Security Groups from the SAME VPC.
-        # If you previously deployed this stack using a different VPC and later changed the lookup,
-        # CloudFormation can fail with:
-        #   "One or more security groups are invalid"
-        #
-        # Pro rule: make the VPC choice explicit and stable across deployments.
-        #
-        # Options:
-        # 1) Provide an existing VPC id via env var VPC_ID (recommended in shared AWS accounts)
-        # 2) If VPC_ID is not set, CDK will CREATE a dedicated VPC (recommended for demos/sandboxes)
         vpc_id = os.getenv("VPC_ID")
         if not vpc_id:
             raise ValueError("VPC_ID is required. Set VPC_ID to your existing VPC.")
-
         vpc = ec2.Vpc.from_lookup(self, "VPC", vpc_id=vpc_id)
 
-        # ====== Security Groups (fixed, provided via env vars) ======
+        # ====== Security Groups (provided via env vars) ======
         ecs_task_sg_id = os.getenv("ECS_TASK_SG_ID")
         if not ecs_task_sg_id:
-            raise ValueError("ECS_TASK_SG_ID environment variable is required (existing SG for ECS tasks).")
+            raise ValueError("ECS_TASK_SG_ID env var is required (existing SG for ECS tasks).")
 
         ecs_task_sg = ec2.SecurityGroup.from_security_group_id(
             self, "ImportedEcsTaskSg", ecs_task_sg_id, mutable=True
@@ -48,7 +37,7 @@ class TemplateEcsStack(Stack):
 
         alb_sg_id = os.getenv("ALB_SG_ID")
         if not alb_sg_id:
-            raise ValueError("ALB_SG_ID environment variable is required (existing SG for ALB).")
+            raise ValueError("ALB_SG_ID env var is required (existing SG for ALB).")
 
         alb_sg = ec2.SecurityGroup.from_security_group_id(
             self, "ImportedAlbSgForIngress", alb_sg_id, mutable=False
@@ -61,14 +50,20 @@ class TemplateEcsStack(Stack):
             description="Allow ALB to reach ECS tasks on 8080",
         )
 
-        subnet_ids_env = os.getenv("SUBNET_IDS", "")
+        # ====== Subnets (from env OR default) ======
+        subnet_ids_env = os.getenv("SUBNET_IDS", "").strip()
         subnet_ids = [s.strip() for s in subnet_ids_env.split(",") if s.strip()]
 
-        subnet_selection = None
         if subnet_ids:
             subnet_selection = ec2.SubnetSelection(
-                subnets=[ec2.Subnet.from_subnet_id(self, f"Subnet{i}", sid) for i, sid in enumerate(subnet_ids)]
+                subnets=[
+                    ec2.Subnet.from_subnet_id(self, f"Subnet{i}", sid)
+                    for i, sid in enumerate(subnet_ids)
+                ]
             )
+        else:
+            # Safer default for Fargate when assign_public_ip=False
+            subnet_selection = ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS)
 
         # ====== ECS Cluster ======
         cluster = ecs.Cluster(self, "Cluster", vpc=vpc)
@@ -81,17 +76,15 @@ class TemplateEcsStack(Stack):
             memory_limit_mib=1024,
         )
 
-        # ====== Docker context directory (IMPORTANT!) ======
-        # Put ONLY the ECS service folder here, NOT the project root.
-        # Expected: src/app/ecs_service/Dockerfile
+        # ====== Docker build ======
         repo_root = Path(__file__).resolve().parents[3]
         dockerfile_path = repo_root / "src" / "app" / "ecs_service" / "Dockerfile"
 
         container = task_def.add_container(
             "AppContainer",
             image=ecs.ContainerImage.from_asset(
-                directory=str(repo_root),  # ✅ build context = root
-                file=str(dockerfile_path.relative_to(repo_root)),  # ✅ Dockerfile path relative
+                directory=str(repo_root),  # build context = repo root
+                file=str(dockerfile_path.relative_to(repo_root)),  # Dockerfile path relative to context
                 exclude=[
                     "**/cdk.out/**",
                     "**/.git/**",
@@ -115,8 +108,7 @@ class TemplateEcsStack(Stack):
             ecs.PortMapping(container_port=8080, protocol=ecs.Protocol.TCP)
         )
 
-        
-        # ====== ECS Service (no ALB creation here) ======
+        # ====== ECS Service ======
         service = ecs.FargateService(
             self,
             "Service",
@@ -129,7 +121,7 @@ class TemplateEcsStack(Stack):
             health_check_grace_period=Duration.seconds(60),
         )
 
-        # ====== Attach Service to EXISTING ALB Listener (from TemplateAlbStack exports) ======
+        # ====== Import EXISTING ALB Listener (created in TemplateAlbStack) ======
         listener_arn = Fn.import_value(f"template-{stage}-alb-listener-arn")
         alb_dns = Fn.import_value(f"template-{stage}-alb-dns")
 
@@ -140,12 +132,16 @@ class TemplateEcsStack(Stack):
             security_group=alb_sg,
         )
 
-        # Create a Target Group behind the existing listener and register ECS tasks (IP targets)
-        listener.add_targets(
-            "EcsTargets",
-            port=8080,
+        # ✅ FIX: For an IMPORTED listener, do NOT use listener.add_targets().
+        # Create a Target Group, attach ECS service, then attach TG to the listener.
+
+        tg = elbv2.ApplicationTargetGroup(
+            self,
+            "EcsTargetGroup",
+            vpc=vpc,
             protocol=elbv2.ApplicationProtocol.HTTP,
-            targets=[service],
+            port=8080,
+            target_type=elbv2.TargetType.IP,  # REQUIRED for Fargate
             health_check=elbv2.HealthCheck(
                 path="/",
                 healthy_http_codes="200-399",
@@ -156,5 +152,14 @@ class TemplateEcsStack(Stack):
             ),
         )
 
-        # Useful output: public URL
+        # Register ECS service in the TG
+        service.attach_to_application_target_group(tg)
+
+        # Attach the TG to the imported listener
+        listener.add_target_groups(
+            "AttachEcsTargetGroup",
+            target_groups=[tg],
+        )
+
+        # Output: public URL
         CfnOutput(self, "ServiceUrl", value=f"http://{alb_dns}")
