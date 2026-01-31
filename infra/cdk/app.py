@@ -2,6 +2,7 @@
 import os
 import aws_cdk as cdk
 
+from stacks.alb_stack import TemplateAlbStack
 from stacks.ecs_stack import TemplateEcsStack
 
 app = cdk.App()
@@ -23,13 +24,19 @@ account = (
 if not account:
     raise ValueError("AWS account is not defined. Set AWS_ACCOUNT_ID or CDK_DEFAULT_ACCOUNT")
 
+
+TemplateAlbStack(
+    app,
+    f"template-alb-{stage}",
+    stage=stage,
+    env=cdk.Environment(account=account, region=region),
+)
+
 TemplateEcsStack(
     app,
     f"template-ecs-{stage}",
-    env=cdk.Environment(
-        account=account,
-        region=region,
-    ),
+    stage=stage,
+    env=cdk.Environment(account=account, region=region),
 )
 
 app.synth()

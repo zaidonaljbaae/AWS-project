@@ -8,14 +8,16 @@ from aws_cdk import (
     Duration,
     aws_ec2 as ec2,
     aws_ecs as ecs,
-    aws_ecs_patterns as ecs_patterns,
+    aws_elasticloadbalancingv2 as elbv2,
+    CfnOutput,
+    Fn,
     aws_logs as logs,
 )
 from constructs import Construct
 
 
 class TemplateEcsStack(Stack):
-    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
+    def __init__(self, scope: Construct, construct_id: str, *, stage: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         # ====== Networking ======
@@ -34,6 +36,30 @@ class TemplateEcsStack(Stack):
             raise ValueError("VPC_ID is required. Set VPC_ID to your existing VPC.")
 
         vpc = ec2.Vpc.from_lookup(self, "VPC", vpc_id=vpc_id)
+
+        # ====== Security Groups (fixed, provided via env vars) ======
+        ecs_task_sg_id = os.getenv("ECS_TASK_SG_ID")
+        if not ecs_task_sg_id:
+            raise ValueError("ECS_TASK_SG_ID environment variable is required (existing SG for ECS tasks).")
+
+        ecs_task_sg = ec2.SecurityGroup.from_security_group_id(
+            self, "ImportedEcsTaskSg", ecs_task_sg_id, mutable=True
+        )
+
+        alb_sg_id = os.getenv("ALB_SG_ID")
+        if not alb_sg_id:
+            raise ValueError("ALB_SG_ID environment variable is required (existing SG for ALB).")
+
+        alb_sg = ec2.SecurityGroup.from_security_group_id(
+            self, "ImportedAlbSgForIngress", alb_sg_id, mutable=False
+        )
+
+        # Allow ALB to reach ECS tasks on app port
+        ecs_task_sg.add_ingress_rule(
+            peer=alb_sg,
+            connection=ec2.Port.tcp(8080),
+            description="Allow ALB to reach ECS tasks on 8080",
+        )
 
         subnet_ids_env = os.getenv("SUBNET_IDS", "")
         subnet_ids = [s.strip() for s in subnet_ids_env.split(",") if s.strip()]
@@ -89,27 +115,46 @@ class TemplateEcsStack(Stack):
             ecs.PortMapping(container_port=8080, protocol=ecs.Protocol.TCP)
         )
 
-        # ====== Use an EXISTING Security Group for ECS Tasks (no auto-created SG) ======
-        ecs_task_sg_id = os.getenv("ECS_TASK_SG_ID")
-        if not ecs_task_sg_id:
-            raise ValueError("ECS_TASK_SG_ID environment variable is required (existing SG for ECS tasks).")
-
-        ecs_task_sg = ec2.SecurityGroup.from_security_group_id(
-            self,
-            "ImportedEcsTaskSg",
-            ecs_task_sg_id,
-            mutable=False,
-        )
-
-        # ====== Fargate Service + ALB (simple pattern) ======
-        service = ecs_patterns.ApplicationLoadBalancedFargateService(
+        
+        # ====== ECS Service (no ALB creation here) ======
+        service = ecs.FargateService(
             self,
             "Service",
             cluster=cluster,
             task_definition=task_def,
             desired_count=1,
-            public_load_balancer=True,
-            health_check_grace_period=Duration.seconds(60),
-            task_subnets=subnet_selection,
+            assign_public_ip=False,
+            vpc_subnets=subnet_selection,
             security_groups=[ecs_task_sg],
+            health_check_grace_period=Duration.seconds(60),
         )
+
+        # ====== Attach Service to EXISTING ALB Listener (from TemplateAlbStack exports) ======
+        listener_arn = Fn.import_value(f"template-{stage}-alb-listener-arn")
+        alb_dns = Fn.import_value(f"template-{stage}-alb-dns")
+
+        listener = elbv2.ApplicationListener.from_application_listener_attributes(
+            self,
+            "ImportedAlbListener",
+            listener_arn=listener_arn,
+            security_group=alb_sg,
+        )
+
+        # Create a Target Group behind the existing listener and register ECS tasks (IP targets)
+        listener.add_targets(
+            "EcsTargets",
+            port=8080,
+            protocol=elbv2.ApplicationProtocol.HTTP,
+            targets=[service],
+            health_check=elbv2.HealthCheck(
+                path="/",
+                healthy_http_codes="200-399",
+                interval=Duration.seconds(30),
+                timeout=Duration.seconds(5),
+                healthy_threshold_count=2,
+                unhealthy_threshold_count=2,
+            ),
+        )
+
+        # Useful output: public URL
+        CfnOutput(self, "ServiceUrl", value=f"http://{alb_dns}")
