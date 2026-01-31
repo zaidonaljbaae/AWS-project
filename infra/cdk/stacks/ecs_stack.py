@@ -89,8 +89,20 @@ class TemplateEcsStack(Stack):
             ecs.PortMapping(container_port=8080, protocol=ecs.Protocol.TCP)
         )
 
+        # ====== Use an EXISTING Security Group for ECS Tasks (no auto-created SG) ======
+        ecs_task_sg_id = os.getenv("ECS_TASK_SG_ID")
+        if not ecs_task_sg_id:
+            raise ValueError("ECS_TASK_SG_ID environment variable is required (existing SG for ECS tasks).")
+
+        ecs_task_sg = ec2.SecurityGroup.from_security_group_id(
+            self,
+            "ImportedEcsTaskSg",
+            ecs_task_sg_id,
+            mutable=False,
+        )
+
         # ====== Fargate Service + ALB (simple pattern) ======
-        ecs_patterns.ApplicationLoadBalancedFargateService(
+        service = ecs_patterns.ApplicationLoadBalancedFargateService(
             self,
             "Service",
             cluster=cluster,
@@ -99,5 +111,5 @@ class TemplateEcsStack(Stack):
             public_load_balancer=True,
             health_check_grace_period=Duration.seconds(60),
             task_subnets=subnet_selection,
-
+            security_groups=[ecs_task_sg],
         )
