@@ -81,6 +81,7 @@ provider:
     DB_NAME: ${env:DB_NAME}
     DB_USER: ${env:DB_USER}
     DB_PASSWORD: ${env:DB_PASSWORD}
+    SUBNETIDS: ${param:SUBNETIDS}
 
     # Useful for app-side validation (optional)
     COGNITO_ISSUER: ${param:ISSUERURL}
