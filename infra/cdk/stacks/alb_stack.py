@@ -100,7 +100,7 @@ class TemplateAlbStack(Stack):
             self,
             "Alb",
             vpc=vpc,
-            internet_facing=True,
+            internet_facing=False,
             security_group=alb_sg,
             vpc_subnets=alb_subnets,
         )
@@ -124,7 +124,7 @@ class TemplateAlbStack(Stack):
             value=alb.load_balancer_arn,
             export_name=f"{export_prefix}-alb-arn",
         )
-        
+
         CfnOutput(
             self,
             "AlbDnsName",
