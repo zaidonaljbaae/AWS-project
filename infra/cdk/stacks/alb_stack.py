@@ -59,15 +59,27 @@ class TemplateAlbStack(Stack):
             raise ValueError("VPC_ID is required. Set VPC_ID to your existing VPC.")
         vpc = ec2.Vpc.from_lookup(self, "VPC", vpc_id=vpc_id)
 
-        # ---- ALB Security Group (existing, fixed) ----
-        alb_sg_id = os.getenv("ALB_SG_ID")
-        if not alb_sg_id:
-            raise ValueError("ALB_SG_ID environment variable is required (existing SG for ALB).")
-        alb_sg = ec2.SecurityGroup.from_security_group_id(
-            self, "ImportedAlbSg", alb_sg_id, mutable=False
-        )
+        # ---- ALB Security Group ----
+        # If ALB_SG_ID is provided, import that existing SG (recommended for production).
+        # Otherwise, create a dedicated SG for the ALB.
+        alb_sg_id = (os.getenv("ALB_SG_ID") or "").strip()
+        if alb_sg_id:
+            alb_sg = ec2.SecurityGroup.from_security_group_id(
+                self, "ImportedAlbSg", alb_sg_id, mutable=False
+            )
+        else:
+            alb_sg = ec2.SecurityGroup(
+                self,
+                "AlbSg",
+                vpc=vpc,
+                allow_all_outbound=True,
+                description="Security group for the Application Load Balancer",
+            )
+            alb_sg.add_ingress_rule(ec2.Peer.any_ipv4(), ec2.Port.tcp(80), "Allow HTTP")
+            alb_sg.add_ingress_rule(ec2.Peer.any_ipv4(), ec2.Port.tcp(443), "Allow HTTPS")
 
-        # ---- Subnets selection (from env) ----
+
+# ---- Subnets selection (from env) ----
         # Recommended: ALB_SUBNET_IDS='["subnet-...","subnet-..."]'
         # Also supports: ALB_SUBNET_IDS='subnet-...,subnet-...'
         alb_subnet_ids = _parse_subnet_ids_env("ALB_SUBNET_IDS")
@@ -124,3 +136,11 @@ class TemplateAlbStack(Stack):
             value=listener.listener_arn,
             export_name=f"{export_prefix}-alb-listener-arn",
         )
+
+
+CfnOutput(
+    self,
+    "AlbSecurityGroupId",
+    value=alb_sg.security_group_id,
+    export_name=f"{export_prefix}-alb-sg-id",
+)

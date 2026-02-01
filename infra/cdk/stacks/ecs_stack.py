@@ -27,17 +27,25 @@ class TemplateEcsStack(Stack):
         vpc = ec2.Vpc.from_lookup(self, "VPC", vpc_id=vpc_id)
 
         # ====== Security Groups (provided via env vars) ======
-        ecs_task_sg_id = os.getenv("ECS_TASK_SG_ID")
-        if not ecs_task_sg_id:
-            raise ValueError("ECS_TASK_SG_ID env var is required (existing SG for ECS tasks).")
+        ecs_task_sg_id = (os.getenv("ECS_TASK_SG_ID") or "").strip()
+        if ecs_task_sg_id:
+            ecs_task_sg = ec2.SecurityGroup.from_security_group_id(
+                self, "ImportedEcsTaskSg", ecs_task_sg_id, mutable=True
+            )
+        else:
+            # Fallback: create a SG for ECS tasks if one wasn't provided.
+            ecs_task_sg = ec2.SecurityGroup(
+                self,
+                "EcsTaskSg",
+                vpc=vpc,
+                allow_all_outbound=True,
+                description="Security group for ECS tasks",
+            )
 
-        ecs_task_sg = ec2.SecurityGroup.from_security_group_id(
-            self, "ImportedEcsTaskSg", ecs_task_sg_id, mutable=True
-        )
-
-        alb_sg_id = os.getenv("ALB_SG_ID")
+        alb_sg_id = (os.getenv("ALB_SG_ID") or "").strip()
         if not alb_sg_id:
-            raise ValueError("ALB_SG_ID env var is required (existing SG for ALB).")
+            # Prefer the SG exported by TemplateAlbStack
+            alb_sg_id = Fn.import_value(f"template-{stage}-alb-sg-id")
 
         alb_sg = ec2.SecurityGroup.from_security_group_id(
             self, "ImportedAlbSgForIngress", alb_sg_id, mutable=False
@@ -155,29 +163,15 @@ class TemplateEcsStack(Stack):
         # Register ECS service in the TG
         service.attach_to_application_target_group(tg)
 
-        # IMPORTANT:
-        # Imported listeners can't use add_targets()/add_target_groups().
-        # Create an explicit Listener Rule that forwards to the target group.
         elbv2.ApplicationListenerRule(
             self,
-            "DefaultForwardToEcs",
+            "ForwardToEcsRule",
             listener=listener,
             priority=10,
             conditions=[elbv2.ListenerCondition.path_patterns(["/*"])],
             action=elbv2.ListenerAction.forward([tg]),
         )
-        
-        service.attach_to_application_target_group(tg)
 
-        # For IMPORTED listeners you must add a RULE, not default target groups
-        elbv2.ApplicationListenerRule(
-            self,
-            "ForwardToEcsRule",
-            listener=listener,
-            priority=10,  # choose an unused priority
-            conditions=[elbv2.ListenerCondition.path_patterns(["/*"])],
-            action=elbv2.ListenerAction.forward([tg]),
-        )
 
         # Output: public URL
         CfnOutput(self, "ServiceUrl", value=f"http://{alb_dns}")
