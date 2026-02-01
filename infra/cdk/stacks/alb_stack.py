@@ -90,8 +90,7 @@ class TemplateAlbStack(Stack):
                 ]
             )
         else:
-            # Default behavior: pick PUBLIC subnets from the VPC
-            alb_subnets = ec2.SubnetSelection(subnet_type=ec2.SubnetType.PUBLIC)
+            alb_subnets = ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS)
 
         # ---- ALB ----
         alb = elbv2.ApplicationLoadBalancer(
