@@ -166,12 +166,17 @@ class TemplateEcsStack(Stack):
             conditions=[elbv2.ListenerCondition.path_patterns(["/*"])],
             action=elbv2.ListenerAction.forward([tg]),
         )
+        
         service.attach_to_application_target_group(tg)
 
-        # Attach the TG to the imported listener
-        listener.add_target_groups(
-            "AttachEcsTargetGroup",
-            target_groups=[tg],
+        # For IMPORTED listeners you must add a RULE, not default target groups
+        elbv2.ApplicationListenerRule(
+            self,
+            "ForwardToEcsRule",
+            listener=listener,
+            priority=10,  # choose an unused priority
+            conditions=[elbv2.ListenerCondition.path_patterns(["/*"])],
+            action=elbv2.ListenerAction.forward([tg]),
         )
 
         # Output: public URL
