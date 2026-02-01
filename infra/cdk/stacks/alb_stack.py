@@ -124,12 +124,14 @@ class TemplateAlbStack(Stack):
             value=alb.load_balancer_arn,
             export_name=f"{export_prefix}-alb-arn",
         )
+        
         CfnOutput(
             self,
             "AlbDnsName",
             value=alb.load_balancer_dns_name,
             export_name=f"{export_prefix}-alb-dns",
         )
+
         CfnOutput(
             self,
             "ListenerArn",
@@ -137,10 +139,9 @@ class TemplateAlbStack(Stack):
             export_name=f"{export_prefix}-alb-listener-arn",
         )
 
-
-CfnOutput(
-    self,
-    "AlbSecurityGroupId",
-    value=alb_sg.security_group_id,
-    export_name=f"{export_prefix}-alb-sg-id",
-)
+        CfnOutput(
+            self,
+            "AlbSecurityGroupId",
+            value=alb_sg.security_group_id,
+            export_name=f"{export_prefix}-alb-sg-id",
+        )
