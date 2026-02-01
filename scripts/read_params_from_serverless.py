@@ -118,7 +118,7 @@ def main() -> None:
             _emit(k, v)
 
     # Lists -> export as CSV (useful for CDK env vars)
-    alb_subnets = _get_list(body, "ALB_SUBNET_IDS", required=False)
+    alb_subnets = _get_list(body, "SUBNETIDS", required=False)
     if alb_subnets:
         _emit("ALB_SUBNET_IDS_CSV", ",".join(alb_subnets))
 

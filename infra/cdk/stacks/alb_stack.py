@@ -80,9 +80,7 @@ class TemplateAlbStack(Stack):
 
 
 # ---- Subnets selection (from env) ----
-        # Recommended: ALB_SUBNET_IDS='["subnet-...","subnet-..."]'
-        # Also supports: ALB_SUBNET_IDS='subnet-...,subnet-...'
-        alb_subnet_ids = _parse_subnet_ids_env("ALB_SUBNET_IDS")
+        alb_subnet_ids = _parse_subnet_ids_env("SUBNETIDS")
 
         if alb_subnet_ids:
             alb_subnets = ec2.SubnetSelection(
