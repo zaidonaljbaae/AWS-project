@@ -1,0 +1,14 @@
+{
+  "app": "python app.py",
+  "context": {
+    "stage": "dev",
+    "region": "us-east-1",
+    "useExistingVpc": true,
+    "vpcId": "vpc-0c07cdd25c80eb7a3",
+    "publicSubnetIds": ["subnet-0f68efd8431a2195c", "subnet-0a1516e74c32d5466"],
+    "privateSubnetIds": ["subnet-018313b2802ae2719", "subnet-087fad512b11f8f42"],
+    "rdsSecurityGroupId": "sg-082ffe72778529636",
+    "dbSecretArn": "REPLACE_DB_SECRET_ARN",
+    "s3BucketName": "REPLACE_S3_BUCKET_NAME"
+  }
+}

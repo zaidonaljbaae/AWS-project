@@ -156,8 +156,12 @@ class TemplateEcsStack(Stack):
         service.attach_to_application_target_group(tg)
 
         # IMPORTANT:
-        # Imported listeners can't use add_targets()/add_target_groups().
-        # Create an explicit Listener Rule that forwards to the target group.
+        # `from_application_listener_attributes()` returns an IMPORTED listener.
+        # Convenience methods like `add_targets()` / `add_target_groups()` only work
+        # on listeners that CDK *constructed* in this stack.
+        #
+        # For imported listeners, create an explicit Listener Rule that forwards to
+        # the target group.
         elbv2.ApplicationListenerRule(
             self,
             "DefaultForwardToEcs",
@@ -165,13 +169,6 @@ class TemplateEcsStack(Stack):
             priority=10,
             conditions=[elbv2.ListenerCondition.path_patterns(["/*"])],
             action=elbv2.ListenerAction.forward([tg]),
-        )
-        service.attach_to_application_target_group(tg)
-
-        # Attach the TG to the imported listener
-        listener.add_target_groups(
-            "AttachEcsTargetGroup",
-            target_groups=[tg],
         )
 
         # Output: public URL

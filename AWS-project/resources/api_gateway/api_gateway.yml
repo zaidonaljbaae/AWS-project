@@ -1,0 +1,11 @@
+Resources:
+  ApiGatewayStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties: 
+      ApiId: 
+        Ref: HttpApi
+      StageName: $default  # Atualiza o estágio existente em vez de criar um novo
+      AutoDeploy: true
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 200 # Limite de rajada
+        ThrottlingRateLimit: 100  # Limite de requisições por segundo

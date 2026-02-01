@@ -1,0 +1,16 @@
+handler: src.app.example_api.example_api.handler
+timeout: 15
+memorySize: 256
+
+package:
+  patterns:
+    - "src/app/__init__.py"
+    - "src/app/example_api/**"
+
+events:
+  - httpApi:
+      path: /api/{proxy+}
+      method: ANY
+      # Serverless v3 expects `authorizer` (not `authorizers`) on the event
+      authorizer:
+        name: cognitoJwt

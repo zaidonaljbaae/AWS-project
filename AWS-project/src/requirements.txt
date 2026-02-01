@@ -1,0 +1,2 @@
+# Shared dependencies (optional). Most services keep their own requirements.txt.
+SQLAlchemy==2.0.36

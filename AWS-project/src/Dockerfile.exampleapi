@@ -1,0 +1,12 @@
+FROM public.ecr.aws/lambda/python:3.11
+
+COPY app/example_api/requirements.txt .
+RUN pip3 install -r requirements.txt --target "${LAMBDA_TASK_ROOT}"
+
+COPY app/example_api/example_api.py ${LAMBDA_TASK_ROOT}
+COPY common ${LAMBDA_TASK_ROOT}/common
+COPY services ${LAMBDA_TASK_ROOT}/services
+COPY repositories ${LAMBDA_TASK_ROOT}/repositories
+COPY models ${LAMBDA_TASK_ROOT}/models
+
+CMD ["example_api.handler"]
